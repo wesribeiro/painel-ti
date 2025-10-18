@@ -1,0 +1,12 @@
+# Dependências
+node_modules/
+
+# Arquivos de log
+npm-debug.log
+*.log
+
+# Banco de dados local (opcional, mas recomendado)
+painel-ti.sqlite
+
+# Arquivos de sistema
+.DS_Store

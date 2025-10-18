@@ -1,0 +1,2163 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel TI - Rede Nilo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+        main > section {
+            min-height: 100vh;
+        }
+        @media (min-width: 1024px) { /* Apenas em telas de desktop (lg) */
+            body {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+            }
+            main#app-container {
+                width: 100%;
+                max-width: 1024px;
+                height: 95vh;
+                max-height: 900px;
+                border-radius: 0.5rem;
+                overflow: hidden;
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            }
+             main > section {
+                min-height: initial;
+                height: 100%;
+            }
+        }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+        
+        .loader {
+            border-top-color: #3498db;
+            -webkit-animation: spinner 1.5s linear infinite;
+            animation: spinner 1.5s linear infinite;
+        }
+
+        @-webkit-keyframes spinner {
+            0% { -webkit-transform: rotate(0deg); }
+            100% { -webkit-transform: rotate(360deg); }
+        }
+
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* --- Estilos do Dashboard Slider --- */
+        #dashboard-container {
+            position: relative;
+            overflow: hidden;
+            border-radius: 0.5rem;
+            cursor: grab;
+            user-select: none; /* Impede a seleção de texto durante o arrasto */
+        }
+        #dashboard-container:active {
+            cursor: grabbing;
+        }
+        .dashboard-slider-wrapper {
+            display: flex;
+        }
+        .dashboard-card {
+            flex: 0 0 100%;
+            width: 100%;
+            box-sizing: border-box;
+            min-height: 180px; /* Altura mínima para os cards */
+        }
+        .dashboard-dots {
+            position: absolute;
+            bottom: 0.75rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 0.5rem;
+        }
+        .dashboard-dot {
+            width: 0.5rem;
+            height: 0.5rem;
+            border-radius: 9999px;
+            background-color: rgba(255, 255, 255, 0.4);
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .dashboard-dot.active {
+            background-color: white;
+        }
+
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <!-- Tela de Carregamento -->
+    <section id="loading-screen" class="fixed inset-0 bg-[#0c0d3d] flex flex-col justify-center items-center z-50">
+        <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
+        <h2 class="text-center text-white text-xl font-semibold">Painel do T.I.</h2>
+        <p class="w-1/3 text-center text-white">Rede Nilo</p>
+    </section>
+
+    <!-- Menu Lateral -->
+    <div id="menu-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden"></div>
+    <div id="side-menu" class="fixed top-0 left-0 h-full w-2/3 max-w-xs bg-[#0c0d3d] text-white z-40 transform -translate-x-full transition-transform duration-300 ease-in-out">
+        <div class="p-4">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <p class="font-bold text-lg" id="side-menu-user-name"></p>
+                    <p class="text-sm text-gray-400" id="side-menu-user-role"></p>
+                </div>
+                <button id="close-menu-btn" class="p-2 rounded-full hover:bg-white/10">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <nav class="flex flex-col space-y-2">
+                <a href="#" id="main-panel-btn" class="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors">Painel PDV</a>
+                <a href="#" id="change-store-btn" class="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors">Mudar Loja</a>
+                <a href="#" id="admin-panel-btn" class="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors">Administração</a>
+                <a href="#" id="logout-btn" class="block px-4 py-3 rounded-md text-red-400 hover:bg-white/10 transition-colors">Sair</a>
+            </nav>
+        </div>
+    </div>
+
+    <div id="toast-container" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm px-4 space-y-2"></div>
+
+    <main id="app-container" class="w-full mx-auto min-h-screen bg-white">
+        
+        <!-- Tela de Login -->
+        <section id="login-screen" class="hidden h-full flex flex-col justify-center items-center p-4">
+             <div class="w-full max-w-sm sm:max-w-md">
+                <div class="text-center mb-10">
+                    <h1 class="text-3xl md:text-4xl font-bold text-[#0c0d3d]">Painel T.I.</h1>
+                    <p class="text-gray-500 md:text-lg">Rede Nilo</p>
+                </div>
+                <form id="login-form">
+                    <div class="mb-4">
+                        <label for="username" class="block text-sm font-medium text-gray-700 mb-1">Usuário</label>
+                        <input type="text" id="username" name="username" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#0c0d3d] focus:border-[#0c0d3d]" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+                        <input type="password" id="password" name="password" placeholder="Deixe em branco no 1º acesso" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#0c0d3d] focus:border-[#0c0d3d]">
+                    </div>
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center">
+                            <input id="keep-connected" name="keep-connected" type="checkbox" class="h-4 w-4 text-[#0c0d3d] focus:ring-[#1f2166] border-gray-300 rounded">
+                            <label for="keep-connected" class="ml-2 block text-sm text-gray-900">
+                                Continuar conectado
+                            </label>
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-[#0c0d3d] text-white py-2 px-4 rounded-md hover:bg-[#1f2166] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0c0d3d] transition-colors">Entrar</button>
+                    <p id="login-error" class="text-red-500 text-sm mt-4 text-center hidden">Usuário ou senha inválidos.</p>
+                </form>
+                 <div class="text-center mt-4">
+                    <a href="#" id="change-password-link" class="text-sm text-[#0c0d3d] hover:underline">Esqueci / Alterar minha senha</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tela Principal (PDV) -->
+        <section id="pdv-screen" class="hidden flex-col h-full">
+            <header class="bg-[#0c0d3d] text-white shadow-md p-4 sticky top-0 z-10 flex items-center justify-between">
+                <button id="open-menu-btn" class="p-2 rounded-full hover:bg-white/10">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+                </button>
+                <div class="text-right">
+                    <h2 class="text-xl font-bold" id="store-name-header"></h2>
+                    <p class="text-sm text-gray-300" id="tech-name-header"></p>
+                </div>
+            </header>
+            
+            <div class="p-4 flex-grow overflow-y-auto">
+                <div id="dashboard-container" class="mb-6">
+                    <!-- Dashboard será renderizado aqui -->
+                </div>
+                <div id="checklist-control-panel" class="mb-4"></div>
+                <div>
+                    <h3 class="text-lg font-semibold mb-3 px-1">PDVs da Loja</h3>
+                    <div id="pdv-list" class="space-y-3"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tela de Checklist -->
+        <section id="checklist-screen" class="hidden flex-col h-full">
+            <header class="bg-[#0c0d3d] text-white shadow-md p-4 sticky top-0 z-10 flex items-center justify-between">
+                <div class="flex items-center">
+                    <button id="back-to-pdv-from-checklist-btn" class="p-2 rounded-full hover:bg-white/10">
+                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                    </button>
+                    <h2 class="text-xl font-bold ml-2">Checklist Diário</h2>
+                </div>
+                <div class="flex gap-2">
+                    <button id="save-checklist-btn" class="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 text-sm font-semibold">Salvar</button>
+                    <button id="finalize-checklist-btn" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm font-semibold">Finalizar</button>
+                </div>
+            </header>
+            <div id="checklist-pdv-list" class="p-4 flex-grow overflow-y-auto space-y-3">
+                <!-- PDVs para checklist são inseridos aqui -->
+            </div>
+        </section>
+
+        <!-- #region Telas de Administração -->
+        <section id="admin-main-menu-screen" class="hidden flex-col h-full">
+             <header class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center justify-between">
+                <button id="admin-back-to-pdv-btn" class="p-2 rounded-full hover:bg-white/10">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <h2 class="text-xl font-bold">Administração</h2>
+                <div class="w-10"></div> <!-- Placeholder for spacing -->
+            </header>
+            <div id="admin-menu-options" class="p-4 flex-grow overflow-y-auto flex flex-col gap-3">
+                <!-- Opções de menu são inseridas dinamicamente aqui -->
+            </div>
+        </section>
+        
+        <section id="checklist-history-screen" class="hidden flex-col h-full">
+            <header class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10">
+                <button class="admin-back-to-main-menu-btn mr-4 p-2 rounded-full hover:bg-white/10">
+                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <h2 class="text-xl font-bold">Histórico de Checklists</h2>
+            </header>
+            <div class="p-4">
+                <select id="checklist-history-store-filter" class="w-full p-2 border rounded-md mb-4"></select>
+            </div>
+            <div id="checklist-history-list" class="px-4 pb-4 flex-grow overflow-y-auto space-y-3">
+                <!-- History items will be inserted here -->
+            </div>
+        </section>
+
+        <section id="admin-roles-screen" class="hidden flex-col h-full">
+             <header class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10">
+                <button class="admin-back-to-main-menu-btn mr-4 p-2 rounded-full hover:bg-white/10">
+                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <h2 class="text-xl font-bold">Gerenciar Permissões</h2>
+            </header>
+            <div class="p-4 flex-grow overflow-y-auto space-y-6">
+                <div id="admin-roles-list" class="space-y-3"></div>
+                 <form id="add-role-form" class="p-3 border rounded-md bg-gray-50 space-y-3">
+                    <h4 class="font-medium text-lg">Adicionar Novo Cargo</h4>
+                    <input type="text" id="new-role-name" placeholder="Nome do cargo (ex: Suporte N1)" class="w-full px-3 py-2 border rounded-md" required>
+                    <button type="submit" class="w-full bg-[#0c0d3d] text-white px-4 py-2 rounded-md hover:bg-[#1f2166]">Criar Cargo</button>
+                </form>
+            </div>
+        </section>
+
+        <section id="admin-logs-menu-screen" class="hidden flex-col h-full">
+            <header class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10">
+                <button class="admin-back-to-main-menu-btn mr-4 p-2 rounded-full hover:bg-white/10">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <h2 class="text-xl font-bold">Registros e Logs</h2>
+            </header>
+            <div class="p-4 flex-grow overflow-y-auto space-y-4">
+                <div id="goto-admin-logs-btn" class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center cursor-pointer hover:bg-gray-100 transition-colors">
+                    <h3 class="font-semibold text-lg">Ações Administrativas</h3>
+                </div>
+                <div id="goto-pdv-logs-btn" class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center cursor-pointer hover:bg-gray-100 transition-colors">
+                    <h3 class="font-semibold text-lg">Log de PDVs</h3>
+                </div>
+            </div>
+        </section>
+
+        <section id="admin-administrative-logs-screen" class="hidden flex-col h-full">
+            <header class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10">
+                <button class="admin-back-to-logs-menu-btn mr-4 p-2 rounded-full hover:bg-white/10">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <h2 class="text-xl font-bold">Ações Administrativas</h2>
+            </header>
+            <div id="admin-logs-list" class="p-4 flex-grow overflow-y-auto space-y-3">
+            </div>
+        </section>
+
+        <section id="admin-pdv-logs-screen" class="hidden flex-col h-full">
+            <header class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10">
+                <button class="admin-back-to-logs-menu-btn mr-4 p-2 rounded-full hover:bg-white/10">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <h2 class="text-xl font-bold">Log de PDVs</h2>
+            </header>
+            <div class="p-4">
+                <select id="pdv-log-store-filter" class="w-full p-2 border rounded-md mb-4"></select>
+            </div>
+            <div id="pdv-logs-list" class="px-4 pb-4 flex-grow overflow-y-auto space-y-3">
+            </div>
+        </section>
+        
+        <section id="admin-users-screen" class="hidden flex-col h-full">
+            <header class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10">
+                <button class="admin-back-to-main-menu-btn mr-4 p-2 rounded-full hover:bg-white/10">
+                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <h2 class="text-xl font-bold">Gerenciar Usuários</h2>
+            </header>
+            <div class="p-4 flex-grow overflow-y-auto space-y-6">
+                <form id="add-user-form" class="p-3 border rounded-md bg-gray-50 space-y-3">
+                    <h4 class="font-medium text-lg">Adicionar Novo Usuário</h4>
+                    <input type="text" id="new-user-name" placeholder="Nome completo" class="w-full px-3 py-2 border rounded-md" required>
+                    <input type="text" id="new-user-username" placeholder="Usuário (login)" class="w-full px-3 py-2 border rounded-md" required>
+                    <select id="new-user-role" class="w-full px-3 py-2 border rounded-md" required>
+                    </select>
+                    <select id="new-user-store" class="w-full px-3 py-2 border rounded-md"></select>
+                    <button type="submit" class="w-full bg-[#0c0d3d] text-white px-4 py-2 rounded-md hover:bg-[#1f2166]">Adicionar Usuário</button>
+                </form>
+                <div>
+                     <button id="goto-users-list-btn" class="w-full bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Ver Usuários Cadastrados</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="admin-users-list-screen" class="hidden flex-col h-full">
+            <header class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10">
+                <button id="back-to-users-menu-btn" class="mr-4 p-2 rounded-full hover:bg-white/10">
+                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <h2 class="text-xl font-bold">Usuários Cadastrados</h2>
+            </header>
+            <div class="p-4 flex-grow overflow-y-auto">
+                <div id="admin-users-list" class="space-y-2 mb-3"></div>
+            </div>
+        </section>
+
+        <section id="admin-stores-screen" class="hidden flex-col h-full">
+            <header class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10">
+                <button class="admin-back-to-main-menu-btn mr-4 p-2 rounded-full hover:bg-white/10">
+                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <h2 class="text-xl font-bold">Gerenciar Lojas</h2>
+            </header>
+            <div class="p-4 flex-grow overflow-y-auto space-y-6">
+                 <div id="pdv-items-management-container" class="mb-4"></div>
+                <div id="admin-stores-list" class="space-y-2 mb-3"></div>
+                <form id="add-store-form" class="p-3 border rounded-md bg-gray-50 space-y-3">
+                    <h4 class="font-medium text-lg">Adicionar Nova Loja</h4>
+                    <input type="text" id="new-store-name" placeholder="Nome da nova loja" class="w-full px-3 py-2 border rounded-md" required>
+                    <input type="number" id="new-store-pdv-start" placeholder="Nº do 1º PDV (ex: 101)" class="w-full px-3 py-2 border rounded-md" required>
+                    <button type="submit" class="w-full bg-[#0c0d3d] text-white px-4 py-2 rounded-md hover:bg-[#1f2166]">Adicionar Loja</button>
+                </form>
+            </div>
+        </section>
+
+        <section id="admin-pdv-items-screen" class="hidden flex-col h-full">
+            <header class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10">
+                <button id="back-from-pdv-items-btn" class="mr-4 p-2 rounded-full hover:bg-white/10">
+                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <h2 class="text-xl font-bold">Itens de PDV Padrão</h2>
+            </header>
+            <div class="p-4 flex-grow overflow-y-auto space-y-6">
+                <div id="admin-pdv-items-list" class="space-y-2 mb-3"></div>
+                 <form id="add-pdv-item-form" class="p-3 border rounded-md bg-gray-50 space-y-3">
+                    <h4 class="font-medium">Adicionar Novo Item Padrão</h4>
+                    <input type="text" id="new-pdv-item-name" placeholder="Nome do item (ex: Balança)" class="w-full px-3 py-2 border rounded-md" required>
+                    <button type="submit" class="w-full bg-[#0c0d3d] text-white px-4 py-2 rounded-md hover:bg-[#1f2166]">Adicionar Item</button>
+                </form>
+            </div>
+        </section>
+
+        <section id="admin-status-screen" class="hidden flex-col h-full">
+            <header class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10">
+                <button class="admin-back-to-main-menu-btn mr-4 p-2 rounded-full hover:bg-white/10">
+                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <h2 class="text-xl font-bold">Gerenciar Status</h2>
+            </header>
+            <div class="p-4 flex-grow overflow-y-auto space-y-6">
+                <div id="admin-status-list" class="space-y-2 mb-3"></div>
+                 <form id="add-status-type-form" class="p-3 border rounded-md bg-gray-50 space-y-3">
+                    <h4 class="font-medium">Adicionar Novo Status</h4>
+                    <input type="text" id="new-status-name" placeholder="Nome do status (ex: Em Análise)" class="w-full px-3 py-2 border rounded-md" required>
+                    <select id="new-status-color" class="w-full px-3 py-2 border rounded-md" required>
+                        <option value="" disabled selected>Selecione uma cor</option>
+                        <option value="blue">Azul</option>
+                        <option value="green">Verde</option>
+                        <option value="yellow">Amarelo</option>
+                        <option value="orange">Laranja</option>
+                        <option value="red">Vermelho</option>
+                        <option value="purple">Roxo</option>
+                        <option value="gray">Cinza</option>
+                        <option value="black">Preto</option>
+                    </select>
+                    <button type="submit" class="w-full bg-[#0c0d3d] text-white px-4 py-2 rounded-md hover:bg-[#1f2166]">Adicionar Status</button>
+                </form>
+            </div>
+        </section>
+        <!-- #endregion -->
+
+    </main>
+
+    <!-- #region Modals -->
+    <div id="pdv-details-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-20 hidden p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+            <div class="p-4 border-b">
+                <h3 class="text-lg font-semibold" id="modal-pdv-title"></h3>
+                <p class="text-sm">Status Atual: <span class="font-bold" id="modal-pdv-current-status"></span></p>
+            </div>
+            <div class="p-4 flex-grow overflow-y-auto">
+                <h4 class="font-semibold mb-3">Histórico de Status</h4>
+                <div id="modal-pdv-history" class="space-y-3"></div>
+                <div class="mt-4 pt-4 border-t">
+                    <h4 class="font-semibold mb-3">Problemas Recorrentes</h4>
+                    <div id="modal-pdv-recurring-problems" class="space-y-2 text-sm">
+                        <!-- Content will be rendered here by JS -->
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 bg-gray-50 border-t flex flex-wrap gap-2 justify-end">
+                <button id="add-status-btn" class="bg-[#0c0d3d] text-white px-4 py-2 rounded-md hover:bg-[#1f2166] transition-colors">Adicionar Status</button>
+                <button id="close-details-modal-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Voltar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="add-status-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-30 hidden p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
+            <form id="add-status-form">
+                <div class="p-4 border-b"><h3 class="text-lg font-semibold" id="add-status-modal-title">Adicionar novo status</h3></div>
+                <div class="p-4 space-y-4">
+                    <div>
+                        <label for="status-select" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <select id="status-select" class="w-full px-3 py-2 border border-gray-300 rounded-md" required></select>
+                    </div>
+                    <div id="status-item-selection-container" class="hidden">
+                        <label for="status-item-select" class="block text-sm font-medium text-gray-700 mb-1">Componente com Problema (Opcional)</label>
+                        <select id="status-item-select" class="w-full px-3 py-2 border border-gray-300 rounded-md"></select>
+                    </div>
+                    <div>
+                        <label for="status-description" class="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+                        <textarea id="status-description" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Descreva o que foi feito ou o problema encontrado..." required></textarea>
+                    </div>
+                </div>
+                <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
+                    <button type="button" id="cancel-add-status-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
+                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="select-store-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-30 hidden p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-sm">
+            <div class="p-4 border-b"><h3 class="text-lg font-semibold">Selecionar Loja</h3></div>
+            <div id="store-selection-list" class="p-4 max-h-64 overflow-y-auto"></div>
+            <div class="p-4 bg-gray-50 border-t flex justify-end">
+                <button id="cancel-store-selection-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="manage-store-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-40 hidden p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+            <div class="p-4 border-b flex justify-between items-center">
+                <h3 class="text-lg font-semibold" id="manage-store-modal-title"></h3>
+                <button id="goto-checklist-config-btn" class="text-sm bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700">Config. Checklist</button>
+            </div>
+            <div class="p-4 flex-grow overflow-y-auto">
+                <h4 class="font-semibold mb-3">PDVs na Loja</h4>
+                <div id="manage-store-pdv-list" class="space-y-2 mb-4"></div>
+                <form id="add-pdv-to-store-form" class="p-3 border rounded-md bg-gray-50 space-y-3">
+                    <h4 class="font-medium">Criação Rápida de PDVs</h4>
+                    <div class="flex gap-2">
+                         <input type="text" id="new-pdv-start-number" placeholder="Nome/Nº (ex: 116)" class="w-2/3 px-3 py-2 border rounded-md" required>
+                         <input type="number" id="new-pdv-quantity" value="3" min="1" max="50" class="w-1/3 px-3 py-2 border rounded-md" required>
+                    </div>
+                     <button type="submit" class="w-full bg-[#0c0d3d] text-white px-4 py-2 rounded-md hover:bg-[#1f2166]">Criar PDV(s)</button>
+                </form>
+            </div>
+            <div class="p-4 bg-gray-50 border-t flex justify-end">
+                <button id="close-manage-store-modal-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="edit-user-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-40 hidden p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
+            <form id="edit-user-form">
+                <input type="hidden" id="edit-user-id">
+                <div class="p-4 border-b"><h3 class="text-lg font-semibold">Editar Usuário</h3></div>
+                <div class="p-4 space-y-4">
+                    <div>
+                        <label for="edit-user-name" class="block text-sm font-medium text-gray-700 mb-1">Nome Completo</label>
+                        <input type="text" id="edit-user-name" class="w-full px-3 py-2 border rounded-md" required>
+                    </div>
+                     <div>
+                        <label for="edit-user-username" class="block text-sm font-medium text-gray-700 mb-1">Usuário (login)</label>
+                        <input type="text" id="edit-user-username" class="w-full px-3 py-2 border rounded-md" required>
+                    </div>
+                     <div>
+                        <label for="edit-user-role" class="block text-sm font-medium text-gray-700 mb-1">Cargo</label>
+                        <select id="edit-user-role" class="w-full px-3 py-2 border rounded-md" required></select>
+                    </div>
+                     <div>
+                        <label for="edit-user-store" class="block text-sm font-medium text-gray-700 mb-1">Loja Padrão</label>
+                        <select id="edit-user-store" class="w-full px-3 py-2 border rounded-md"></select>
+                    </div>
+                </div>
+                <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
+                    <button type="button" id="cancel-edit-user-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
+                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+     <div id="edit-store-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-40 hidden p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
+            <form id="edit-store-form">
+                <input type="hidden" id="edit-store-id">
+                <div class="p-4 border-b"><h3 class="text-lg font-semibold">Editar Loja</h3></div>
+                <div class="p-4 space-y-4">
+                    <div>
+                        <label for="edit-store-name" class="block text-sm font-medium text-gray-700 mb-1">Nome da Loja</label>
+                        <input type="text" id="edit-store-name" class="w-full px-3 py-2 border rounded-md" required>
+                    </div>
+                    <div>
+                        <label for="edit-store-pdv-start" class="block text-sm font-medium text-gray-700 mb-1">Nº do 1º PDV</label>
+                        <input type="number" id="edit-store-pdv-start" class="w-full px-3 py-2 border rounded-md" required>
+                    </div>
+                </div>
+                <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
+                    <button type="button" id="cancel-edit-store-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
+                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="password-change-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-40 hidden p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
+            <form id="password-change-form">
+                <div class="p-4 border-b"><h3 class="text-lg font-semibold" id="password-modal-title"></h3></div>
+                <div class="p-4 space-y-4">
+                     <div>
+                        <label for="password-change-username" class="block text-sm font-medium text-gray-700 mb-1">Usuário (login)</label>
+                        <input type="text" id="password-change-username" class="w-full px-3 py-2 border rounded-md bg-gray-100" readonly>
+                    </div>
+                     <div id="current-password-wrapper">
+                        <label for="current-password" class="block text-sm font-medium text-gray-700 mb-1">Senha Atual</label>
+                        <input type="password" id="current-password" class="w-full px-3 py-2 border rounded-md">
+                    </div>
+                     <div>
+                        <label for="new-password" class="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
+                        <input type="password" id="new-password" class="w-full px-3 py-2 border rounded-md" required>
+                    </div>
+                     <div>
+                        <label for="confirm-new-password" class="block text-sm font-medium text-gray-700 mb-1">Confirme a Nova Senha</label>
+                        <input type="password" id="confirm-new-password" class="w-full px-3 py-2 border rounded-md" required>
+                    </div>
+                    <p id="password-change-error" class="text-red-500 text-sm text-center hidden"></p>
+                </div>
+                <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
+                    <button type="button" id="cancel-password-change-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
+                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Definir Senha</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="edit-role-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-40 hidden p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+            <form id="edit-role-form">
+                <input type="hidden" id="edit-role-id">
+                <div class="p-4 border-b"><h3 class="text-lg font-semibold" id="edit-role-modal-title"></h3></div>
+                <div id="edit-role-permissions" class="p-4 space-y-3 overflow-y-auto">
+                </div>
+                <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
+                    <button type="button" id="cancel-edit-role-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
+                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Salvar Permissões</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="confirmation-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
+            <form id="confirmation-form">
+                <div class="p-4 border-b">
+                    <h3 class="text-lg font-semibold" id="confirmation-modal-title">Confirmar Ação</h3>
+                </div>
+                <div class="p-4 space-y-4">
+                    <p id="confirmation-modal-message"></p>
+                    <div>
+                        <label for="confirmation-password" class="block text-sm font-medium text-gray-700 mb-1">Sua Senha</label>
+                        <input type="password" id="confirmation-password" class="w-full px-3 py-2 border rounded-md" required>
+                        <p id="confirmation-error" class="text-red-500 text-sm mt-2 hidden">Senha incorreta.</p>
+                    </div>
+                </div>
+                <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
+                    <button type="button" id="cancel-confirmation-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
+                    <button type="submit" id="confirm-action-btn" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700">Confirmar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DE CHECKLIST DO PDV -->
+    <div id="checklist-pdv-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[95vh] flex flex-col">
+            <div class="p-4 border-b flex justify-between items-center">
+                 <h3 class="text-lg font-semibold" id="checklist-pdv-modal-title"></h3>
+                 <button id="checklist-help-btn" class="text-gray-400 hover:text-blue-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                         <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.79 4 4s-1.79 4-4 4-4-1.79-4-4c0-1.165.451-2.228 1.228-3zM12 18v-5" />
+                      </svg>
+                 </button>
+            </div>
+            <div class="p-4 space-y-4 overflow-y-auto">
+                <div id="checklist-current-status-info" class="p-3 bg-gray-50 rounded-md text-sm"></div>
+                <div id="checklist-problem-section" class="space-y-3">
+                     <label for="checklist-new-status" class="block text-sm font-medium text-gray-700">Status do PDV</label>
+                     <select id="checklist-new-status" class="w-full px-3 py-2 border border-gray-300 rounded-md"></select>
+                </div>
+                <div id="checklist-pdv-items" class="space-y-2 hidden pt-3 border-t">
+                     <label class="block text-sm font-medium text-gray-700">Itens com problema</label>
+                </div>
+                <div>
+                    <label for="checklist-observation" class="block text-sm font-medium text-gray-700 mb-1">Observações</label>
+                    <textarea id="checklist-observation" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md"></textarea>
+                </div>
+            </div>
+            <div class="p-4 bg-gray-50 border-t space-y-2">
+                <div class="flex justify-center gap-2">
+                    <button id="checklist-prev-pdv-btn" class="bg-gray-300 text-gray-800 p-2 rounded-md hover:bg-gray-400">Anterior</button>
+                    <button id="checklist-ok-btn" class="flex-grow bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 font-semibold">Tudo OK</button>
+                    <button id="checklist-next-pdv-btn" class="bg-gray-300 text-gray-800 p-2 rounded-md hover:bg-gray-400">Próximo</button>
+                </div>
+                <div class="flex justify-between gap-2">
+                    <button id="checklist-busy-btn" class="flex-grow bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600">Caixa Ocupado</button>
+                    <button id="checklist-save-and-close-btn" class="flex-grow bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Salvar e Voltar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="checklist-help-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
+            <div class="p-4 border-b">
+                <h3 class="text-lg font-semibold">Itens a Verificar</h3>
+            </div>
+            <div id="checklist-help-list" class="p-4 space-y-2 text-sm">
+                <!-- Itens do checklist -->
+            </div>
+            <div class="p-4 bg-gray-50 border-t flex justify-end">
+                <button id="close-checklist-help-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- MODAL DE CONFIG CHECKLIST -->
+    <div id="checklist-config-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+            <div class="p-4 border-b"><h3 class="text-lg font-semibold" id="checklist-config-title"></h3></div>
+            <div class="p-4 space-y-4 overflow-y-auto">
+                <div>
+                    <label for="checklist-days-limit" class="block text-sm font-medium text-gray-700 mb-1">Nº de dias para alerta sem checklist</label>
+                    <input type="number" id="checklist-days-limit" min="1" class="w-full px-3 py-2 border rounded-md">
+                </div>
+                <div class="pt-3 border-t">
+                     <h4 class="font-semibold mb-2">Itens de Checklist (Específicos da Loja)</h4>
+                     <div id="checklist-config-items-list" class="space-y-2 mb-3"></div>
+                     <form id="add-checklist-item-form" class="flex gap-2">
+                         <input type="text" id="new-checklist-item-text" placeholder="Novo item específico" class="flex-grow px-3 py-2 border rounded-md" required>
+                         <button type="submit" class="bg-[#0c0d3d] text-white px-4 rounded-md hover:bg-[#1f2166]">+</button>
+                     </form>
+                </div>
+            </div>
+            <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
+                <button type="button" id="cancel-checklist-config-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
+                <button type="button" id="save-checklist-config-btn" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Salvar Configurações</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="apply-checklist-item-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[60] hidden p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
+            <div class="p-4 border-b"><h3 class="text-lg font-semibold">Aplicar Item de Checklist</h3></div>
+            <div class="p-4">
+                <p class="mb-4">Selecione as lojas para adicionar o item: "<span id="apply-item-text" class="font-semibold"></span>"</p>
+                <div class="space-y-2 max-h-60 overflow-y-auto" id="apply-item-stores-list">
+                    <!-- Store checkboxes will be injected here -->
+                </div>
+                 <div class="flex items-center mt-4">
+                    <input id="apply-item-all-stores" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                    <label for="apply-item-all-stores" class="ml-2 block text-sm text-gray-900">Marcar Todas</label>
+                </div>
+            </div>
+            <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
+                <button type="button" id="cancel-apply-item-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
+                <button type="button" id="confirm-apply-item-btn" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Confirmar</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="view-checklist-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+            <div class="p-4 border-b">
+                <h3 class="text-lg font-semibold" id="view-checklist-modal-title">Detalhes do Checklist</h3>
+            </div>
+            <div id="view-checklist-modal-content" class="p-4 space-y-3 overflow-y-auto">
+                <!-- Checklist details will be rendered here -->
+            </div>
+            <div class="p-4 bg-gray-50 border-t flex justify-end">
+                <button id="close-view-checklist-modal-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Fechar</button>
+            </div>
+        </div>
+    </div>
+    <!-- #endregion -->
+
+    <script>
+        // --- BANCO DE DADOS SIMULADO ---
+        let db = {};
+
+        function initializeDatabase() {
+            const defaultDb = {
+                roles: [
+                    { id: 1, name: 'Administrador', permissions: { accessAdminPanel: true, manageUsers: true, manageStores: true, manageStatusTypes: true, managePermissions: true, viewActionLogs: true, manageChecklistSettings: true, managePdvItems: true, canStartChecklist: true, editPdvStatus: 'all', viewAllPdvStatus: true } },
+                    { id: 2, name: 'Técnico', permissions: { accessAdminPanel: true, manageUsers: false, manageStores: false, manageStatusTypes: false, managePermissions: false, viewActionLogs: false, manageChecklistSettings: false, managePdvItems: false, canStartChecklist: true, editPdvStatus: 'own', viewAllPdvStatus: true } },
+                    { id: 3, name: 'Supervisor', permissions: { accessAdminPanel: true, manageUsers: false, manageStores: false, manageStatusTypes: false, managePermissions: false, viewActionLogs: false, manageChecklistSettings: false, managePdvItems: false, canStartChecklist: false, editPdvStatus: 'none', viewAllPdvStatus: true } },
+                ],
+                users: [
+                    { id: 1, name: 'Administrador', username: 'admin', password: 'Nilo@@1254', roleId: 1, storeId: null, lastLogin: null },
+                    { id: 2, name: 'Fulano de Tal', username: 'fulano', password: '123', roleId: 2, storeId: 1, lastLogin: null },
+                    { id: 3, name: 'Ciclano Supervisor', username: 'supervisor', password: null, roleId: 3, storeId: null, lastLogin: null },
+                ],
+                stores: [
+                    { id: 1, name: 'Nilo - Loja 01 (Centro)', pdvNamingStart: 101, checklistConfig: { items: [{id: 1, text: 'Verificar Ar Condicionado'}], noChecklistDaysLimit: 5 } },
+                    { id: 2, name: 'Nilo - Loja 02 (Bairro)', pdvNamingStart: 201, checklistConfig: { items: [], noChecklistDaysLimit: 3 } },
+                ],
+                pdvs: [
+                    { id: 101, storeId: 1, number: '101' }, { id: 102, storeId: 1, number: '102' },
+                    { id: 103, storeId: 1, number: '103' }, { id: 104, storeId: 2, number: '201' },
+                ],
+                pdvItems: [
+                    { id: 1, name: 'Monitor'},
+                    { id: 2, name: 'Teclado'},
+                    { id: 3, name: 'Mouse'},
+                    { id: 4, name: 'Scanner de Mão'},
+                    { id: 5, name: 'Impressora Fiscal'},
+                ],
+                statusTypes: [
+                    { id: 1, name: 'Ok', color: 'green' }, { id: 2, name: 'Atenção', color: 'orange' },
+                    { id: 3, name: 'Manutenção', color: 'red' }, { id: 4, name: 'Reserva', color: 'gray' },
+                    { id: 5, name: 'Sem status', color: 'gray' },
+                ],
+                statusHistory: [
+                    { id: 1, pdvId: 101, statusId: 3, description: 'PDV não liga, fonte.', techId: 2, timestamp: '2025-09-25T10:00:00.000Z' },
+                    { id: 2, pdvId: 101, statusId: 1, description: 'Fonte trocada', techId: 2, timestamp: '2025-09-26T11:30:00.000Z' },
+                    { id: 3, pdvId: 102, statusId: 2, description: 'Tecla "5" não funciona', techId: 2, timestamp: '2025-09-27T09:00:00.000Z', itemId: 2 },
+                ],
+                checklists: [],
+                actionLogs: [],
+            };
+            
+            let savedDbData = {};
+            try {
+                const savedData = localStorage.getItem('redeNiloDb');
+                if (savedData) {
+                    savedDbData = JSON.parse(savedData);
+                }
+            } catch (e) {
+                console.error("Erro ao carregar dados do localStorage. Restaurando para o padrão.", e);
+                localStorage.removeItem('redeNiloDb');
+            }
+
+            db = { ...defaultDb, ...savedDbData };
+            
+            if (!db.pdvItems) { db.pdvItems = defaultDb.pdvItems; }
+
+            db.stores.forEach(store => {
+                if (!store.checklistConfig) {
+                    store.checklistConfig = { items: [], noChecklistDaysLimit: 5 };
+                }
+            });
+
+            saveDb();
+        }
+        
+        function saveDb() { localStorage.setItem('redeNiloDb', JSON.stringify(db)); }
+
+        let state = {
+            loggedInUser: null, currentStore: null, activeScreen: 'login', activeModal: null,
+            selectedPdvId: null, selectedStoreId: null, selectedUserId: null, selectedRoleId: null,
+            userForPasswordChange: null, isFirstLoginForPasswordChange: false, actionToConfirm: null,
+            activeChecklist: null,
+            currentChecklistPdvIndex: -1,
+            selectedChecklistId: null,
+            showFullAdminLogs: false,
+            showFullPdvLogs: false,
+            dashboardActiveSlide: 0,
+            checklistItemToAdd: null,
+        };
+        
+        function logAction(description, metadata = {}, userContext = state.loggedInUser) {
+            if (!userContext) {
+                const user = db.users.find(u => u.username === state.userForPasswordChange);
+                if(user) userContext = user;
+                else {
+                    console.error("logAction foi chamada sem um contexto de usuário válido.");
+                    return;
+                }
+            }
+            db.actionLogs.push({ 
+                id: (db.actionLogs.length ? Math.max(...db.actionLogs.map(l => l.id)) : 0) + 1, 
+                userId: userContext.id, 
+                userName: userContext.name, 
+                description, 
+                timestamp: new Date().toISOString(),
+                ...metadata 
+            });
+            saveDb();
+        }
+
+        const can = {
+            permission: (perm) => {
+                if (!state.loggedInUser) return false;
+                const role = db.roles.find(r => r.id === state.loggedInUser.roleId);
+                return role && role.permissions[perm];
+            },
+            editStatus: (pdv) => {
+                if (!state.loggedInUser || !pdv) return false;
+                const role = db.roles.find(r => r.id === state.loggedInUser.roleId);
+                if (!role) return false;
+                const perm = role.permissions.editPdvStatus;
+                if (perm === 'all') return true;
+                if (perm === 'own' && state.loggedInUser.storeId === pdv.storeId) return true;
+                return false;
+            }
+        };
+
+        function getStatusInfo(statusId) { return db.statusTypes.find(st => st.id === statusId) || { id: 0, name: 'Desconhecido', color: 'black'}; }
+        function getLastPdvStatus(pdvId) { return [...db.statusHistory].filter(h => h.pdvId === pdvId).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0] || null; }
+        function openMenu() { document.getElementById('side-menu').classList.remove('-translate-x-full'); document.getElementById('menu-overlay').classList.remove('hidden'); }
+        function closeMenu() { document.getElementById('side-menu').classList.add('-translate-x-full'); document.getElementById('menu-overlay').classList.add('hidden'); }
+        function handleLogout() { 
+            state.loggedInUser = null; 
+            state.currentStore = null; 
+            localStorage.removeItem('loggedInUserId');
+            closeMenu(); 
+            showScreen('login'); 
+        }
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container'); const toast = document.createElement('div');
+            const colors = { success: 'bg-green-500', error: 'bg-red-500', info: 'bg-blue-500' };
+            toast.className = `px-6 py-3 rounded-lg text-white text-sm font-semibold shadow-lg transition-all duration-300 transform opacity-0 -translate-y-4 ${colors[type]}`;
+            toast.textContent = message; container.appendChild(toast);
+            setTimeout(() => toast.classList.remove('opacity-0', '-translate-y-4'), 10);
+            setTimeout(() => { toast.classList.add('opacity-0', 'translate-y-4'); toast.addEventListener('transitionend', () => toast.remove()); }, 3000);
+        }
+        function getTodayDateString() { return new Date().toISOString().split('T')[0]; }
+
+        // --- RENDER FUNCTIONS ---
+        function applyStatusColors() {
+            let styleSheet = document.getElementById('dynamic-styles'); if (!styleSheet) { styleSheet = document.createElement('style'); styleSheet.id = 'dynamic-styles'; document.head.appendChild(styleSheet); }
+            const colorMap = { blue: '#3b82f6', green: '#22c55e', yellow: '#eab308', orange: '#f97316', red: '#ef4444', purple: '#8b5cf6', gray: '#6b7280', black: '#000000' };
+            styleSheet.innerHTML = db.statusTypes.map(s => `.status-border-${s.id}{border-left-color:${colorMap[s.color]||'#e5e7eb'}} .status-text-${s.id}{color:${colorMap[s.color]||'#e5e7eb'}} .status-bg-${s.id}{background-color:${colorMap[s.color]||'#e5e7eb'}}`).join(' ');
+        }
+        function showScreen(screenName) {
+            document.querySelectorAll('main > section').forEach(s => { s.classList.add('hidden'); s.classList.remove('flex', 'flex-col'); });
+            const screen = document.getElementById(`${screenName}-screen`);
+            if (screen) { screen.classList.remove('hidden'); if (screenName !== 'login') screen.classList.add('flex', 'flex-col'); else { screen.classList.add('flex', 'flex-col'); }}
+            state.activeScreen = screenName;
+            const renderMap = { 
+                'pdv': renderPdvScreen, 
+                'admin-main-menu': renderAdminMainMenu, 
+                'admin-users': renderAdminUsersScreen, 
+                'admin-users-list': renderAdminUsersListScreen, 
+                'admin-stores': renderAdminStoresScreen, 
+                'admin-status': renderAdminStatusScreen, 
+                'admin-roles': renderAdminRolesScreen, 
+                'admin-logs-menu': renderAdminLogsMenu,
+                'admin-administrative-logs': renderAdministrativeLogsScreen,
+                'admin-pdv-logs': renderPdvLogsScreen,
+                'checklist': renderChecklistScreen, 
+                'checklist-history': renderChecklistHistoryScreen,
+                'admin-pdv-items': renderAdminPdvItemsScreen,
+            };
+            if(renderMap[screenName]) renderMap[screenName]();
+        }
+        function showModal(modalName) {
+            document.querySelectorAll('[id$="-modal"]').forEach(m => m.classList.add('hidden')); state.activeModal = modalName;
+            if (modalName) {
+                const modal = document.getElementById(`${modalName}-modal`);
+                if (modal) {
+                     const renderMap = { 'pdv-details': renderPdvDetailsModal, 'add-status': renderAddStatusModal, 'select-store': renderSelectStoreModal, 'manage-store': renderManageStoreModal, 'edit-user': renderEditUserModal, 'edit-store': renderEditStoreModal, 'password-change': renderPasswordChangeModal, 'edit-role': renderEditRoleModal, 'checklist-pdv': renderChecklistPdvModal, 'checklist-config': renderChecklistConfigModal, 'view-checklist': renderViewChecklistModal, 'checklist-help': renderChecklistHelpModal, 'apply-checklist-item': renderApplyChecklistItemModal };
+                    if(renderMap[modalName]) renderMap[modalName]();
+                    modal.classList.remove('hidden');
+                }
+            }
+        }
+        function showConfirmationModal(title, message, callback) {
+            document.getElementById('confirmation-modal-title').textContent = title; document.getElementById('confirmation-modal-message').textContent = message;
+            document.getElementById('confirmation-error').classList.add('hidden'); document.getElementById('confirmation-form').reset();
+            state.actionToConfirm = callback; showModal('confirmation'); document.getElementById('confirmation-password').focus();
+        }
+        function renderAdminMainMenu() {
+            const container = document.getElementById('admin-menu-options'); container.innerHTML = '';
+            const menuItems = [
+                { perm: 'manageUsers', text: 'Gerenciar Usuários', screen: 'admin-users', icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>`}, 
+                { perm: 'manageStores', text: 'Gerenciar Lojas', screen: 'admin-stores', icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>`}, 
+                { perm: 'manageStatusTypes', text: 'Gerenciar Status', screen: 'admin-status', icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" /></svg>`}, 
+                { perm: 'managePermissions', text: 'Gerenciar Permissões', screen: 'admin-roles', icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>`}, 
+                { perm: 'viewActionLogs', text: 'Registros e Logs', screen: 'admin-logs-menu', icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>` },
+                { perm: 'viewChecklistHistory', text: 'Histórico de Checklist', screen: 'checklist-history', icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>` }
+            ];
+            menuItems.forEach(item => {
+                if (can.permission(item.perm) || item.perm === 'viewChecklistHistory') {
+                    const div = document.createElement('div');
+                    div.className = 'bg-gray-50 border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-100 transition-colors flex items-center gap-4';
+                    div.innerHTML = `<div>${item.icon}</div><h3 class="font-semibold text-gray-700">${item.text}</h3>`;
+                    div.addEventListener('click', () => showScreen(item.screen));
+                    container.appendChild(div);
+                }
+            });
+            const logoutButton = document.createElement('div');
+            logoutButton.className = 'bg-red-50 border-red-200 text-red-700 border rounded-lg p-4 cursor-pointer hover:bg-red-100 transition-colors flex items-center gap-4';
+            logoutButton.innerHTML = `<div><svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg></div><h3 class="font-semibold">Sair</h3>`;
+            logoutButton.addEventListener('click', handleLogout);
+            container.appendChild(logoutButton);
+        }
+        function renderAdminLogsMenu() { /* Placeholder */ }
+        function renderAdminPdvItemsScreen() {
+            const listEl = document.getElementById('admin-pdv-items-list');
+            listEl.innerHTML = db.pdvItems.map(item => `
+                <div class="bg-gray-100 p-2 rounded text-sm flex justify-between items-center">
+                    <span>${item.name}</span>
+                    <button data-itemid="${item.id}" class="remove-pdv-item-btn text-red-600 hover:underline font-bold text-lg">&times;</button>
+                </div>`).join('');
+        }
+        function renderPdvScreen() {
+            if (!state.loggedInUser || !state.currentStore) return handleLogout();
+            
+            runAutomaticChecks(state.currentStore.id);
+            renderDashboard();
+
+            const role = db.roles.find(r => r.id === state.loggedInUser.roleId);
+            document.getElementById('store-name-header').textContent = state.currentStore.name;
+            document.getElementById('tech-name-header').textContent = `${role.name}: ${state.loggedInUser.name}`;
+            document.getElementById('admin-panel-btn').style.display = can.permission('accessAdminPanel') ? 'block' : 'none';
+
+            document.getElementById('side-menu-user-name').textContent = state.loggedInUser.name;
+            document.getElementById('side-menu-user-role').textContent = role.name;
+
+            const checklistPanel = document.getElementById('checklist-control-panel');
+            const todaysChecklist = db.checklists.find(c => c.storeId === state.currentStore.id && c.date === getTodayDateString());
+            if(can.permission('canStartChecklist') && (!todaysChecklist || todaysChecklist.status !== 'completed')) {
+                checklistPanel.innerHTML = `<button id="start-checklist-btn" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 font-semibold">${todaysChecklist ? 'Continuar' : 'Iniciar'} Checklist do Dia</button>`;
+            } else if (todaysChecklist?.status === 'completed') {
+                checklistPanel.innerHTML = `<div class="text-center p-2 bg-green-100 text-green-800 rounded-md">Checklist de hoje finalizado!</div>`;
+            } else {
+                 checklistPanel.innerHTML = '';
+            }
+            
+            const pdvListEl = document.getElementById('pdv-list');
+            const pdvsInStore = db.pdvs.filter(pdv => pdv.storeId === state.currentStore.id);
+            pdvListEl.innerHTML = '';
+
+            if (pdvsInStore.length === 0) {
+                pdvListEl.innerHTML = `<p class="text-gray-500 text-center py-4">Nenhum PDV cadastrado para esta loja.</p>`;
+                return;
+            }
+
+            pdvsInStore.forEach(pdv => {
+                const lastStatusEntry = getLastPdvStatus(pdv.id);
+                const statusInfo = lastStatusEntry ? getStatusInfo(lastStatusEntry.statusId) : getStatusInfo(db.statusTypes.find(s=>s.name==='Sem status').id);
+                const techName = lastStatusEntry && lastStatusEntry.techId !== 0 ? (db.users.find(u => u.id === lastStatusEntry.techId)?.name.split(' ')[0] || 'Desconhecido') : 'Sistema';
+                let obsHtml = lastStatusEntry ? `<p class="text-sm text-gray-600 mt-1 truncate">${lastStatusEntry.description} <span class="text-gray-400 font-medium">- ${techName}</span></p>` : `<p class="text-sm text-gray-500 mt-1">Nenhuma observação.</p>`;
+                
+                const pdvCard = document.createElement('div');
+                pdvCard.className = `bg-white p-4 rounded-lg shadow-sm border-l-4 status-border-${statusInfo.id} cursor-pointer hover:shadow-md transition-shadow`;
+                pdvCard.dataset.pdvid = pdv.id;
+                pdvCard.innerHTML = `<div class="flex justify-between items-center"><p class="font-bold text-lg">Caixa ${pdv.number}</p><span class="text-sm font-medium status-text-${statusInfo.id}">${statusInfo.name}</span></div>${obsHtml}`;
+                pdvCard.addEventListener('click', () => { state.selectedPdvId = pdv.id; showModal('pdv-details'); });
+                pdvListEl.appendChild(pdvCard);
+            });
+        }
+        function renderPdvDetailsModal() {
+            const pdv = db.pdvs.find(p => p.id === state.selectedPdvId);
+            const history = [...db.statusHistory].filter(h => h.pdvId === pdv.id).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            const lastStatusEntry = history[0];
+            const statusInfo = lastStatusEntry ? getStatusInfo(lastStatusEntry.statusId) : getStatusInfo(db.statusTypes.find(s=>s.name==='Sem status').id);
+            document.getElementById('modal-pdv-title').textContent = `Detalhes do Caixa ${pdv.number}`;
+            document.getElementById('modal-pdv-current-status').textContent = statusInfo.name;
+            document.getElementById('add-status-btn').style.display = can.editStatus(pdv) ? 'block' : 'none';
+            const historyEl = document.getElementById('modal-pdv-history'); historyEl.innerHTML = '';
+            if (history.length === 0) { historyEl.innerHTML = `<p class="text-gray-500">Nenhum histórico.</p>`; }
+            else {
+                history.slice(0, 10).forEach(entry => {
+                    const techName = entry.techId === 0 ? 'Sistema' : (db.users.find(u => u.id === entry.techId)?.name || 'Desconhecido');
+                    const entryStatusInfo = getStatusInfo(entry.statusId);
+                    historyEl.innerHTML += `<div class="border-l-4 status-border-${entryStatusInfo.id} pl-3 py-2 space-y-1 bg-gray-50/50 rounded-r-md"><div class="flex justify-between items-center text-sm"><p class="font-semibold status-text-${entryStatusInfo.id}">${entryStatusInfo.name}</p><p class="text-xs text-gray-500">por ${techName}</p></div><p class="text-sm text-gray-700">${entry.description}</p><p class="text-xs text-gray-400 text-right">${new Date(entry.timestamp).toLocaleString('pt-BR')}</p></div>`;
+                });
+            }
+
+            const recurringProblemsEl = document.getElementById('modal-pdv-recurring-problems');
+            recurringProblemsEl.innerHTML = '';
+
+            const problemCounts = new Map();
+
+            // Source 1: Checklists
+            const allItemsMap = new Map();
+            getChecklistItemsForStore(pdv.storeId).forEach(item => allItemsMap.set(item.id, item.text));
+
+            db.checklists
+                .filter(c => c.status === 'completed' && c.pdvChecks.some(pc => pc.pdvId === pdv.id))
+                .forEach(checklist => {
+                    const pdvCheck = checklist.pdvChecks.find(pc => pc.pdvId === pdv.id);
+                    if (pdvCheck && pdvCheck.result === 'problem' && pdvCheck.issues) {
+                        pdvCheck.issues.forEach(issueId => {
+                            const itemText = allItemsMap.get(issueId);
+                            if (itemText) {
+                                const key = `${itemText} (Checklist)`;
+                                problemCounts.set(key, (problemCounts.get(key) || 0) + 1);
+                            }
+                        });
+                    }
+                });
+
+            // Source 2: Status History
+            const pdvItemsMap = new Map(db.pdvItems.map(item => [item.id, item.name]));
+            db.statusHistory
+                .filter(h => h.pdvId === pdv.id && h.itemId)
+                .forEach(entry => {
+                    const itemName = pdvItemsMap.get(entry.itemId);
+                    if (itemName) {
+                        problemCounts.set(itemName, (problemCounts.get(itemName) || 0) + 1);
+                    }
+                });
+
+            if (problemCounts.size === 0) {
+                recurringProblemsEl.innerHTML = '<p class="text-gray-500">Nenhum problema recorrente registrado.</p>';
+            } else {
+                const sortedProblems = [...problemCounts.entries()].sort((a, b) => b[1] - a[1]);
+                sortedProblems.forEach(([problemText, count]) => {
+                    recurringProblemsEl.innerHTML += `
+                        <div class="flex justify-between items-center bg-gray-50 p-2 rounded">
+                            <span>${problemText}</span>
+                            <span class="font-bold text-red-600">${count} ocorrência(s)</span>
+                        </div>
+                    `;
+                });
+            }
+        }
+        function renderAddStatusModal() {
+            const pdv = db.pdvs.find(p => p.id === state.selectedPdvId);
+            document.getElementById('add-status-modal-title').textContent = `Novo Status para Caixa ${pdv.number}`;
+            
+            const statusSelect = document.getElementById('status-select');
+            statusSelect.innerHTML = db.statusTypes.filter(s => s.name !== 'Sem status').map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+
+            const itemSelect = document.getElementById('status-item-select');
+            itemSelect.innerHTML = '<option value="">Nenhum / Outro</option>' + db.pdvItems.map(item => `<option value="${item.id}">${item.name}</option>`).join('');
+
+            document.getElementById('add-status-form').reset();
+            
+            // Initial state check
+            const container = document.getElementById('status-item-selection-container');
+            const okStatusId = db.statusTypes.find(s => s.name === 'Ok').id.toString();
+            container.classList.toggle('hidden', statusSelect.value === okStatusId);
+        }
+        function renderSelectStoreModal() {
+            const listEl = document.getElementById('store-selection-list');
+            listEl.innerHTML = db.stores.map(store => `<div data-storeid="${store.id}" class="store-item p-3 hover:bg-gray-100 cursor-pointer rounded-md">${store.name}</div>`).join('');
+        }
+        function renderAdminUsersScreen() {
+            document.getElementById('new-user-role').innerHTML = `<option value="" disabled selected>Selecione o cargo</option>` + db.roles.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+            document.getElementById('new-user-store').innerHTML = `<option value="">Nenhuma (Padrão)</option>` + db.stores.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        }
+        function renderAdminUsersListScreen() {
+             document.getElementById('admin-users-list').innerHTML = db.users.map(u => {
+                const roleName = (db.roles.find(r => r.id === u.roleId) || {name: 'Inválido'}).name;
+                const storeName = u.storeId ? (db.stores.find(s => s.id === u.storeId) || {name: ''}).name : '';
+                const lastLogin = u.lastLogin ? new Date(u.lastLogin).toLocaleString('pt-BR') : 'Nunca';
+                return `<div class="bg-gray-100 p-3 rounded-md text-sm"><div class="flex justify-between items-start"><div><p class="font-semibold">${u.name} <span class="font-normal text-gray-500">(${u.username})</span></p><p class="text-xs text-gray-600">${roleName}${storeName ? ` - ${storeName}` : ''}</p></div><div class="flex items-center gap-3"><button data-userid="${u.id}" class="edit-user-btn text-blue-600 hover:underline text-xs">Editar</button><button data-userid="${u.id}" class="remove-user-btn text-red-600 hover:underline font-bold text-lg">&times;</button></div></div><div class="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200">Último login: ${lastLogin}</div></div>`;
+            }).join('');
+        }
+        function renderAdminStoresScreen() {
+            const pdvItemsContainer = document.getElementById('pdv-items-management-container');
+            pdvItemsContainer.innerHTML = '';
+            if (can.permission('managePdvItems')) {
+                pdvItemsContainer.innerHTML = `<button id="goto-pdv-items-btn" class="w-full bg-gray-200 text-gray-800 px-4 py-3 rounded-md hover:bg-gray-300 flex items-center justify-center gap-3 text-left">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+                    <span class="font-semibold">Gerenciar Itens de PDV Padrão</span>
+                </button>`;
+            }
+
+            document.getElementById('admin-stores-list').innerHTML = db.stores.map(store => `<div class="bg-gray-100 p-3 rounded-md text-sm"><div class="flex justify-between items-center"><span>${store.name}</span><div><button data-storeid="${store.id}" class="edit-store-btn text-blue-600 hover:underline mr-3">Editar</button><button data-storeid="${store.id}" class="manage-store-btn text-blue-600 hover:underline mr-3">Gerenciar</button><button data-storeid="${store.id}" class="remove-store-btn text-red-600 hover:underline font-bold text-lg">&times;</button></div></div><div class="text-xs text-gray-500 mt-1">Nomenclatura PDV inicia em: ${store.pdvNamingStart}</div></div>`).join('');
+        }
+        function renderAdminStatusScreen() {
+            document.getElementById('admin-status-list').innerHTML = db.statusTypes.map(s => `<div class="bg-gray-100 p-2 rounded text-sm flex justify-between items-center"><span class="flex items-center"><div class="w-3 h-3 rounded-full mr-2" style="background-color: ${s.color};"></div>${s.name}</span> <button data-statusid="${s.id}" class="remove-status-btn text-red-600 hover:underline font-bold text-lg ${s.name === 'Sem status' ? 'hidden' : ''}">&times;</button></div>`).join('');
+        }
+        
+        function groupLogsByMonth(logs) {
+            return logs.reduce((acc, log) => {
+                const date = new Date(log.timestamp);
+                const monthYear = date.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+                const capitalizedMonthYear = monthYear.charAt(0).toUpperCase() + monthYear.slice(1);
+                if (!acc[capitalizedMonthYear]) {
+                    acc[capitalizedMonthYear] = [];
+                }
+                acc[capitalizedMonthYear].push(log);
+                return acc;
+            }, {});
+        }
+
+        function renderAdministrativeLogsScreen() {
+            const listEl = document.getElementById('admin-logs-list');
+            listEl.innerHTML = '';
+            const allLogs = [...db.actionLogs].reverse();
+
+            if (allLogs.length === 0) {
+                listEl.innerHTML = `<p class="text-gray-500 text-center py-4">Nenhum registro.</p>`;
+                return;
+            }
+
+            const logsToDisplay = state.showFullAdminLogs ? allLogs : allLogs.slice(0, 20);
+            
+            if (state.showFullAdminLogs) {
+                const groupedLogs = groupLogsByMonth(logsToDisplay);
+                for (const month in groupedLogs) {
+                    listEl.innerHTML += `<h3 class="text-lg font-semibold text-gray-700 mt-4 mb-2">${month}</h3>`;
+                    groupedLogs[month].forEach(log => {
+                        const showButtonHtml = log.checklistId ? `<button data-checklistid="${log.checklistId}" class="view-checklist-log-btn text-sm text-blue-600 hover:underline">Mostrar</button>` : '';
+                        listEl.innerHTML += `<div class="bg-gray-100 p-3 rounded-md text-sm"><div class="flex justify-between items-start"><p>${log.description}</p>${showButtonHtml}</div><p class="text-xs text-gray-500 mt-1">Por: <span class="font-medium">${log.userName}</span> em ${new Date(log.timestamp).toLocaleString('pt-BR')}</p></div>`;
+                    });
+                }
+            } else {
+                logsToDisplay.forEach(log => {
+                    const showButtonHtml = log.checklistId ? `<button data-checklistid="${log.checklistId}" class="view-checklist-log-btn text-sm text-blue-600 hover:underline">Mostrar</button>` : '';
+                    listEl.innerHTML += `<div class="bg-gray-100 p-3 rounded-md text-sm"><div class="flex justify-between items-start"><p>${log.description}</p>${showButtonHtml}</div><p class="text-xs text-gray-500 mt-1">Por: <span class="font-medium">${log.userName}</span> em ${new Date(log.timestamp).toLocaleString('pt-BR')}</p></div>`;
+                });
+
+                if (allLogs.length > 20) {
+                    listEl.innerHTML += `<div class="text-center mt-4"><button id="show-full-admin-logs-btn" class="text-blue-600 hover:underline">Histórico Completo</button></div>`;
+                }
+            }
+        }
+        
+        function renderPdvLogsScreen() {
+            const filterEl = document.getElementById('pdv-log-store-filter');
+            const listEl = document.getElementById('pdv-logs-list');
+
+            const currentStoreId = filterEl.value || (state.currentStore ? state.currentStore.id : '');
+
+            filterEl.innerHTML = `<option value="">Selecione uma loja</option>` + db.stores.map(s => `<option value="${s.id}" ${s.id == currentStoreId ? 'selected' : ''}>${s.name}</option>`).join('');
+            
+            listEl.innerHTML = '';
+            if (!currentStoreId) {
+                listEl.innerHTML = `<p class="text-gray-500 text-center py-4">Selecione uma loja para ver os logs.</p>`;
+                return;
+            }
+
+            const allLogs = [...db.statusHistory].filter(h => {
+                const pdv = db.pdvs.find(p => p.id === h.pdvId);
+                return pdv && pdv.storeId == currentStoreId;
+            }).reverse();
+
+            if (allLogs.length === 0) {
+                listEl.innerHTML = `<p class="text-gray-500 text-center py-4">Nenhum log de PDV para esta loja.</p>`;
+                return;
+            }
+            
+            const logsToDisplay = state.showFullPdvLogs ? allLogs : allLogs.slice(0, 20);
+
+            if (state.showFullPdvLogs) {
+                const groupedLogs = groupLogsByMonth(logsToDisplay);
+                 for (const month in groupedLogs) {
+                    listEl.innerHTML += `<h3 class="text-lg font-semibold text-gray-700 mt-4 mb-2">${month}</h3>`;
+                    groupedLogs[month].forEach(log => {
+                        const pdv = db.pdvs.find(p => p.id === log.pdvId);
+                        const techName = log.techId === 0 ? 'Sistema' : (db.users.find(u => u.id === log.techId)?.name || 'Desconhecido');
+                        const statusInfo = getStatusInfo(log.statusId);
+                        listEl.innerHTML += `<div class="border-l-4 status-border-${statusInfo.id} pl-3 py-2 space-y-1 bg-gray-50/50 rounded-r-md"><div class="flex justify-between items-center text-sm"><p class="font-bold">Caixa ${pdv.number} &rarr; <span class="font-semibold status-text-${statusInfo.id}">${statusInfo.name}</span></p><p class="text-xs text-gray-500">por ${techName}</p></div><p class="text-sm text-gray-700">${log.description}</p><p class="text-xs text-gray-400 text-right">${new Date(log.timestamp).toLocaleString('pt-BR')}</p></div>`;
+                    });
+                 }
+            } else {
+                 logsToDisplay.forEach(log => {
+                    const pdv = db.pdvs.find(p => p.id === log.pdvId);
+                    const techName = log.techId === 0 ? 'Sistema' : (db.users.find(u => u.id === log.techId)?.name || 'Desconhecido');
+                    const statusInfo = getStatusInfo(log.statusId);
+                    listEl.innerHTML += `<div class="border-l-4 status-border-${statusInfo.id} pl-3 py-2 space-y-1 bg-gray-50/50 rounded-r-md"><div class="flex justify-between items-center text-sm"><p class="font-bold">Caixa ${pdv.number} &rarr; <span class="font-semibold status-text-${statusInfo.id}">${statusInfo.name}</span></p><p class="text-xs text-gray-500">por ${techName}</p></div><p class="text-sm text-gray-700">${log.description}</p><p class="text-xs text-gray-400 text-right">${new Date(log.timestamp).toLocaleString('pt-BR')}</p></div>`;
+                });
+                if (allLogs.length > 20) {
+                    listEl.innerHTML += `<div class="text-center mt-4"><button id="show-full-pdv-logs-btn" class="text-blue-600 hover:underline">Histórico Completo</button></div>`;
+                }
+            }
+        }
+        function renderManageStoreModal() {
+            const store = db.stores.find(s => s.id === state.selectedStoreId);
+            document.getElementById('manage-store-modal-title').textContent = `Gerenciar Loja: ${store.name}`;
+            const pdvsInStore = db.pdvs.filter(p => p.storeId === store.id);
+            const nextPdvNumber = (pdvsInStore.length > 0) ? Math.max(...pdvsInStore.map(p => parseInt(p.number, 10))) + 1 : store.pdvNamingStart;
+            document.getElementById('new-pdv-start-number').value = nextPdvNumber;
+            const pdvListEl = document.getElementById('manage-store-pdv-list'); pdvListEl.innerHTML = '';
+            if (pdvsInStore.length === 0) { pdvListEl.innerHTML = `<p class="text-gray-500 text-center text-sm py-2">Nenhum PDV.</p>`; } 
+            else { pdvsInStore.forEach(pdv => {
+                const statusInfo = getLastPdvStatus(pdv.id) ? getStatusInfo(getLastPdvStatus(pdv.id).statusId) : getStatusInfo(db.statusTypes.find(s=>s.name==='Sem status').id);
+                pdvListEl.innerHTML += `<div class="bg-gray-100 p-2 rounded text-sm flex justify-between items-center"><span>Caixa ${pdv.number} (Status: ${statusInfo.name})</span> <button data-pdvid="${pdv.id}" class="remove-pdv-btn text-red-600 hover:underline font-bold text-lg">&times;</button></div>`;
+            }); }
+        }
+        function renderEditUserModal() {
+            const user = db.users.find(u => u.id === state.selectedUserId); if (!user) return;
+            document.getElementById('edit-user-id').value = user.id;
+            document.getElementById('edit-user-name').value = user.name;
+            document.getElementById('edit-user-username').value = user.username;
+            document.getElementById('edit-user-role').innerHTML = db.roles.map(r => `<option value="${r.id}" ${user.roleId === r.id ? 'selected' : ''}>${r.name}</option>`).join('');
+            document.getElementById('edit-user-store').innerHTML = `<option value="">Nenhuma</option>` + db.stores.map(s => `<option value="${s.id}" ${user.storeId === s.id ? 'selected' : ''}>${s.name}</option>`).join('');
+        }
+        function renderEditStoreModal() {
+            const store = db.stores.find(s => s.id === state.selectedStoreId); if (!store) return;
+            document.getElementById('edit-store-id').value = store.id;
+            document.getElementById('edit-store-name').value = store.name;
+            document.getElementById('edit-store-pdv-start').value = store.pdvNamingStart;
+        }
+        function renderPasswordChangeModal() {
+            const form = document.getElementById('password-change-form'); form.reset();
+            document.getElementById('password-change-error').classList.add('hidden');
+            document.getElementById('password-change-username').value = state.userForPasswordChange;
+            const isFirst = state.isFirstLoginForPasswordChange;
+            document.getElementById('password-modal-title').textContent = isFirst ? 'Definir sua Senha' : 'Alterar Senha';
+            document.getElementById('current-password-wrapper').style.display = isFirst ? 'none' : 'block';
+            document.getElementById('current-password').required = !isFirst;
+        }
+        function renderAdminRolesScreen() {
+             document.getElementById('admin-roles-list').innerHTML = db.roles.map(role => `<div class="bg-gray-100 p-3 rounded-md text-sm"><div class="flex justify-between items-center"><span class="font-semibold">${role.name}</span><div><button data-roleid="${role.id}" class="edit-role-btn text-blue-600 hover:underline mr-3">Editar Permissões</button>${role.name !== 'Administrador' ? `<button data-roleid="${role.id}" class="remove-role-btn text-red-600 hover:underline font-bold text-lg">&times;</button>` : ''}</div></div></div>`).join('');
+        }
+        function renderEditRoleModal() {
+             const role = db.roles.find(r => r.id === state.selectedRoleId); if(!role) return;
+             document.getElementById('edit-role-modal-title').textContent = `Editar Permissões: ${role.name}`;
+             document.getElementById('edit-role-id').value = role.id;
+             const container = document.getElementById('edit-role-permissions'); container.innerHTML = '';
+             const permissionLabels = { accessAdminPanel: 'Acessar Painel Admin', manageUsers: 'Gerenciar Usuários', manageStores: 'Gerenciar Lojas', managePdvItems: 'Gerenciar Itens Padrão', manageStatusTypes: 'Gerenciar Status', managePermissions: 'Gerenciar Permissões', viewActionLogs: 'Ver Registro de Ações', viewAllPdvStatus: 'Ver Status de Todas Lojas', manageChecklistSettings: 'Gerenciar Config. Checklist', canStartChecklist: 'Pode Iniciar Checklist' };
+             Object.keys(permissionLabels).forEach(key => {
+                 container.innerHTML += `<div class="flex items-center"><input id="perm-${key}" name="${key}" type="checkbox" ${role.permissions[key] ? 'checked' : ''} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"><label for="perm-${key}" class="ml-3 block text-sm text-gray-900">${permissionLabels[key]}</label></div>`;
+             });
+             container.innerHTML += `<div class="pt-3 border-t"><label class="block text-sm font-medium text-gray-700">Editar Status de PDV</label><select id="perm-editPdvStatus" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"><option value="none" ${role.permissions.editPdvStatus==='none'?'selected':''}>Nenhuma</option><option value="own" ${role.permissions.editPdvStatus==='own'?'selected':''}>Apenas Própria Loja</option><option value="all" ${role.permissions.editPdvStatus==='all'?'selected':''}>Todas as Lojas</option></select></div>`;
+        }
+        function runAutomaticChecks(storeId) {
+            const store = db.stores.find(s => s.id === storeId);
+            const pdvs = db.pdvs.filter(p => p.storeId === storeId);
+            const limit = store.checklistConfig.noChecklistDaysLimit;
+            const today = new Date(getTodayDateString());
+            pdvs.forEach(pdv => {
+                const lastCheck = [...db.checklists].reverse().find(c => c.status === 'completed' && c.storeId === storeId && c.pdvChecks.some(pc => pc.pdvId === pdv.id && (pc.result === 'ok' || pc.result === 'problem')));
+                let daysSinceCheck = Infinity;
+                if (lastCheck) { daysSinceCheck = (today - new Date(lastCheck.date)) / (1000 * 60 * 60 * 24); }
+                if (daysSinceCheck > limit) {
+                    const lastStatus = getLastPdvStatus(pdv.id);
+                    const attentionStatus = db.statusTypes.find(s => s.name === 'Atenção');
+                    const description = `${Math.floor(daysSinceCheck)} dias sem checklist`;
+                    if (!lastStatus || (lastStatus.description !== description && lastStatus.techId !== 0)) {
+                        db.statusHistory.push({ id: (db.statusHistory.length ? Math.max(...db.statusHistory.map(h => h.id)) : 0) + 1, pdvId: pdv.id, statusId: attentionStatus.id, description, techId: 0, timestamp: new Date().toISOString() });
+                        logAction(`PDV Caixa ${pdv.number} atualizado para 'Atenção' por falta de checklist.`);
+                        saveDb();
+                    }
+                }
+            });
+        }
+        function getChecklistItemsForStore(storeId) {
+            const store = db.stores.find(s => s.id === storeId);
+            if (!store) return [];
+
+            const standardItems = db.pdvItems.map(item => ({
+                id: `std-${item.id}`,
+                text: `Verificar ${item.name}`
+            }));
+            const customItems = store.checklistConfig.items.map(item => ({
+                id: `cst-${item.id}`,
+                text: item.text
+            }));
+
+            return [...standardItems, ...customItems];
+        }
+        function renderChecklistScreen() {
+            const listEl = document.getElementById('checklist-pdv-list');
+            listEl.innerHTML = '';
+            const pdvs = db.pdvs.filter(p => p.storeId === state.activeChecklist.storeId);
+            
+            pdvs.forEach((pdv, index) => {
+                const checkData = state.activeChecklist.pdvChecks.find(c => c.pdvId === pdv.id) || {};
+                let bgColor = 'bg-white'; let textColor = 'text-gray-800';
+                if(checkData.result === 'ok') { bgColor = 'bg-green-100'; textColor = 'text-green-800'; }
+                if(checkData.result === 'problem') { bgColor = 'bg-red-100'; textColor = 'text-red-800'; }
+                if(checkData.result === 'busy') { bgColor = 'bg-gray-200'; textColor = 'text-gray-600'; }
+
+                const card = document.createElement('div');
+                card.dataset.index = index;
+                card.className = `checklist-pdv-card p-4 rounded-lg shadow-sm cursor-pointer hover:shadow-md transition-shadow flex justify-between items-center ${bgColor} ${textColor}`;
+                card.innerHTML = `<p class="font-bold text-lg">Caixa ${pdv.number}</p><span class="text-xs font-medium uppercase">${checkData.result || 'Pendente'}</span>`;
+                listEl.appendChild(card);
+            });
+        }
+        function renderChecklistPdvModal() {
+            const pdv = db.pdvs.filter(p => p.storeId === state.activeChecklist.storeId)[state.currentChecklistPdvIndex];
+            const checkData = state.activeChecklist.pdvChecks.find(c => c.pdvId === pdv.id) || {};
+            document.getElementById('checklist-pdv-modal-title').textContent = `Verificando Caixa ${pdv.number}`;
+            
+            const currentStatusInfoEl = document.getElementById('checklist-current-status-info');
+            const lastStatus = getLastPdvStatus(pdv.id);
+            if(lastStatus) {
+                const statusInfo = getStatusInfo(lastStatus.statusId);
+                currentStatusInfoEl.innerHTML = `<strong>Status Atual:</strong> <span class="status-text-${statusInfo.id}">${statusInfo.name}</span><p class="text-xs text-gray-500 truncate mt-1">Obs: ${lastStatus.description}</p>`;
+            } else {
+                currentStatusInfoEl.innerHTML = `<strong>Status Atual:</strong> Sem status`;
+            }
+
+            const allItems = getChecklistItemsForStore(state.currentStore.id);
+            const itemsContainer = document.getElementById('checklist-pdv-items');
+            itemsContainer.innerHTML = `<label class="block text-sm font-medium text-gray-700">Itens com problema</label>` + allItems.map(item => `
+                <div class="flex items-center"><input id="checklist-item-${item.id}" data-itemid="${item.id}" type="checkbox" ${(checkData.issues || []).includes(item.id) ? 'checked' : ''} class="checklist-item-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded"><label for="checklist-item-${item.id}" class="ml-3 text-sm text-gray-700">${item.text}</label></div>
+            `).join('');
+
+            document.getElementById('checklist-observation').value = checkData.observation || '';
+            const statusSelect = document.getElementById('checklist-new-status');
+            
+            const okStatus = db.statusTypes.find(s => s.name === 'Ok');
+            statusSelect.innerHTML = `<option value="${okStatus.id}">Ok</option>` + db.statusTypes.filter(s => s.name !== 'Sem status' && s.name !== 'Ok').map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            
+            if (checkData.newStatusId) {
+                statusSelect.value = checkData.newStatusId;
+            } else {
+                statusSelect.value = okStatus.id;
+            }
+
+            const isProblem = statusSelect.value != okStatus.id;
+            itemsContainer.classList.toggle('hidden', !isProblem);
+
+            document.getElementById('checklist-prev-pdv-btn').disabled = state.currentChecklistPdvIndex === 0;
+            document.getElementById('checklist-next-pdv-btn').disabled = state.currentChecklistPdvIndex === db.pdvs.filter(p => p.storeId === state.activeChecklist.storeId).length - 1;
+        }
+        function renderChecklistConfigModal() {
+            const store = db.stores.find(s => s.id === state.selectedStoreId);
+            document.getElementById('checklist-config-title').textContent = `Configurações de Checklist: ${store.name}`;
+            document.getElementById('checklist-days-limit').value = store.checklistConfig.noChecklistDaysLimit;
+            
+            const listEl = document.getElementById('checklist-config-items-list');
+            listEl.innerHTML = store.checklistConfig.items.map(item => `
+                <div class="bg-gray-100 p-2 rounded text-sm flex justify-between items-center"><span>${item.text}</span> <button data-itemid="${item.id}" class="remove-checklist-item-btn text-red-600 hover:underline font-bold text-lg">&times;</button></div>
+            `).join('');
+        }
+        function renderChecklistHistoryScreen() {
+            const filterEl = document.getElementById('checklist-history-store-filter');
+            const listEl = document.getElementById('checklist-history-list');
+
+            const currentStoreId = filterEl.value || (state.currentStore ? state.currentStore.id : '');
+            filterEl.innerHTML = `<option value="">Todas as Lojas</option>` + db.stores.map(s => `<option value="${s.id}" ${s.id == currentStoreId ? 'selected' : ''}>${s.name}</option>`).join('');
+            
+            listEl.innerHTML = '';
+            const completedChecklists = [...db.checklists]
+                .filter(c => c.status === 'completed' && (!currentStoreId || c.storeId == currentStoreId))
+                .sort((a,b) => new Date(b.date) - new Date(a.date));
+
+            if(completedChecklists.length === 0) {
+                listEl.innerHTML = `<p class="text-gray-500 text-center py-4">Nenhum checklist finalizado encontrado para a seleção.</p>`;
+                return;
+            }
+
+            completedChecklists.forEach(checklist => {
+                const store = db.stores.find(s => s.id === checklist.storeId);
+                const user = db.users.find(u => u.id === checklist.finalizedByUserId);
+                const formattedDate = new Date(checklist.date + 'T12:00:00Z').toLocaleDateString('pt-BR', { year: 'numeric', month: 'long', day: 'numeric' });
+
+                listEl.innerHTML += `
+                    <div class="bg-gray-100 p-3 rounded-md text-sm">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <p class="font-semibold">${store ? store.name : 'Loja desconhecida'}</p>
+                                <p class="text-xs text-gray-600">Finalizado em ${formattedDate} por ${user ? user.name : 'Usuário desconhecido'}</p>
+                            </div>
+                            <button data-checklistid="${checklist.id}" class="view-checklist-history-btn bg-blue-500 text-white px-3 py-1 text-xs rounded hover:bg-blue-600">Visualizar</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        function renderViewChecklistModal() {
+            const checklist = db.checklists.find(c => c.id === state.selectedChecklistId);
+            if (!checklist) return;
+
+            const store = db.stores.find(s => s.id === checklist.storeId);
+            const formattedDate = new Date(checklist.date + 'T12:00:00Z').toLocaleDateString('pt-BR', { dateStyle: 'full' });
+            document.getElementById('view-checklist-modal-title').textContent = `Checklist de ${store.name} - ${formattedDate}`;
+            
+            const contentEl = document.getElementById('view-checklist-modal-content');
+            contentEl.innerHTML = '';
+
+            const allItemsForStore = getChecklistItemsForStore(store.id);
+
+            const pdvs = db.pdvs.filter(p => p.storeId === checklist.storeId);
+            pdvs.forEach(pdv => {
+                const checkData = checklist.pdvChecks.find(c => c.pdvId === pdv.id);
+                if(!checkData) return;
+
+                let resultHtml = '';
+                let observationHtml = checkData.observation ? `<p class="text-xs italic text-gray-600 mt-1">"${checkData.observation}"</p>` : '';
+
+                if(checkData.result === 'ok') {
+                    resultHtml = '<span class="font-semibold text-green-600">Tudo OK</span>';
+                } else if (checkData.result === 'busy') {
+                    resultHtml = '<span class="font-semibold text-gray-600">Caixa Ocupado</span>';
+                } else if (checkData.result === 'problem') {
+                    const status = getStatusInfo(checkData.newStatusId);
+                    resultHtml = `<span class="font-semibold text-red-600">Problema (${status.name})</span>`;
+
+                    if(checkData.issues && checkData.issues.length > 0) {
+                         observationHtml += `<ul class="list-disc list-inside text-xs text-gray-700 mt-1">` + checkData.issues.map(itemId => {
+                            const item = allItemsForStore.find(i => i.id === itemId);
+                            return `<li>${item ? item.text : 'Item desconhecido'}</li>`;
+                         }).join('') + `</ul>`;
+                    }
+                }
+
+                contentEl.innerHTML += `
+                    <div class="bg-gray-50 p-3 rounded-md">
+                        <div class="flex justify-between items-center">
+                            <p class="font-bold">Caixa ${pdv.number}</p>
+                            ${resultHtml}
+                        </div>
+                        ${observationHtml}
+                    </div>
+                `;
+            });
+        }
+        function renderChecklistHelpModal() {
+            const listEl = document.getElementById('checklist-help-list');
+            listEl.innerHTML = '';
+            if (state.currentStore) {
+                 const allItems = getChecklistItemsForStore(state.currentStore.id);
+                listEl.innerHTML = '<ul>' + allItems.map(item => `<li class="ml-4 list-disc">${item.text}</li>`).join('') + '</ul>';
+            }
+        }
+
+        // --- DASHBOARD LOGIC ---
+        function renderDashboard() {
+            const container = document.getElementById('dashboard-container');
+            if (!state.currentStore) {
+                container.innerHTML = '';
+                return;
+            }
+
+            // --- Filter data for the current store ---
+            const currentStoreId = state.currentStore.id;
+            const pdvsInStore = db.pdvs.filter(pdv => pdv.storeId === currentStoreId);
+            
+            // --- Card 1 Data (Store Overview) ---
+            const pdvStatusInStore = pdvsInStore.map(pdv => getLastPdvStatus(pdv.id)?.statusId || 5);
+            const statusCounts = pdvStatusInStore.reduce((acc, statusId) => { acc[statusId] = (acc[statusId] || 0) + 1; return acc; }, {});
+            let overviewContent = '';
+            if (pdvsInStore.length > 0) {
+                db.statusTypes.forEach(status => {
+                    const count = statusCounts[status.id] || 0;
+                    if (count > 0) {
+                        overviewContent += `<div class="flex justify-between items-center text-sm"><span class="flex items-center"><div class="w-3 h-3 rounded-full mr-2 status-bg-${status.id}"></div>${status.name}</span><span class="font-bold">${count} PDV(s)</span></div>`;
+                    }
+                });
+            } else {
+                overviewContent = `<p class="text-sm text-gray-300">Nenhum PDV cadastrado nesta loja.</p>`;
+            }
+
+
+            // --- Card 2 Data (Checklist Status for this Store) ---
+            let checklistContent = '';
+            const store = state.currentStore;
+            const today = new Date(getTodayDateString());
+            const lastCheck = [...db.checklists].reverse().find(c => c.storeId === store.id && c.status === 'completed');
+            const todaysChecklist = db.checklists.find(c => c.storeId === store.id && c.date === getTodayDateString());
+
+            if (todaysChecklist && todaysChecklist.status === 'completed') {
+                checklistContent = `<p class="text-sm text-green-300">Checklist de hoje finalizado!</p>`;
+            } else if (lastCheck) {
+                const daysSinceCheck = Math.floor((today - new Date(lastCheck.date)) / (1000 * 60 * 60 * 24));
+                if (daysSinceCheck >= store.checklistConfig.noChecklistDaysLimit) {
+                    checklistContent = `<p class="text-sm text-orange-300">Atenção: A ${daysSinceCheck} dias sem checklist finalizado.</p>`;
+                } else {
+                     checklistContent = `<p class="text-sm text-gray-300">Último checklist há ${daysSinceCheck} dia(s).</p>`;
+                }
+            } else {
+                checklistContent = `<p class="text-sm text-yellow-300">Nenhum checklist finalizado para esta loja.</p>`;
+            }
+
+
+            // --- Card 3 Data (Top Problems in this Store) ---
+            let topProblemsContent = '';
+            const allItemsForStoreMap = new Map(getChecklistItemsForStore(currentStoreId).map(i => [i.id, i.text]));
+            const problemCounts = db.checklists
+                .filter(c => c.storeId === currentStoreId && c.status === 'completed')
+                .flatMap(c => c.pdvChecks)
+                .filter(pc => pc.result === 'problem' && pc.issues)
+                .flatMap(pc => pc.issues)
+                .reduce((acc, itemId) => { acc[itemId] = (acc[itemId] || 0) + 1; return acc; }, {});
+                
+            const sortedProblems = Object.entries(problemCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+            
+            if (sortedProblems.length > 0) {
+                sortedProblems.forEach(([itemId, count]) => {
+                    const itemText = allItemsForStoreMap.get(itemId);
+                    if(itemText) {
+                         topProblemsContent += `<div class="flex justify-between items-center text-sm bg-black/10 p-2 rounded-md"><span class="font-medium">${itemText}</span><span class="font-bold text-orange-300">${count} ocorrência(s)</span></div>`;
+                    }
+                });
+            } else {
+                topProblemsContent += `<p class="text-sm text-gray-300">Nenhum problema recorrente registrado.</p>`;
+            }
+
+            // --- HTML Structure ---
+            container.innerHTML = `
+                <div class="dashboard-slider-wrapper">
+                    <div class="dashboard-card bg-[#0c0d3d] text-white p-6 rounded-lg shadow-lg">
+                        <h3 class="font-semibold mb-3">Visão Geral da Loja</h3>
+                        <div class="space-y-2">${overviewContent}</div>
+                    </div>
+                    <div class="dashboard-card bg-[#0c0d3d] text-white p-6 rounded-lg shadow-lg">
+                        <h3 class="font-semibold mb-3">Status do Checklist</h3>
+                        <div class="space-y-2">${checklistContent}</div>
+                    </div>
+                    <div class="dashboard-card bg-[#0c0d3d] text-white p-6 rounded-lg shadow-lg">
+                        <h3 class="font-semibold mb-3">Top Componentes (Loja)</h3>
+                        <div class="space-y-2">${topProblemsContent}</div>
+                    </div>
+                </div>
+                <div class="dashboard-dots">
+                    <div class="dashboard-dot active" data-slide="0"></div>
+                    <div class="dashboard-dot" data-slide="1"></div>
+                    <div class="dashboard-dot" data-slide="2"></div>
+                </div>
+            `;
+
+            // --- Slider Logic ---
+            const wrapper = container.querySelector('.dashboard-slider-wrapper');
+            const dots = container.querySelectorAll('.dashboard-dot');
+            const totalSlides = dots.length;
+            
+            const updateSlider = () => {
+                wrapper.style.transition = 'transform 0.5s ease-in-out';
+                wrapper.style.transform = `translateX(-${state.dashboardActiveSlide * 100}%)`;
+                dots.forEach(dot => {
+                    dot.classList.toggle('active', parseInt(dot.dataset.slide) === state.dashboardActiveSlide);
+                });
+            };
+
+            dots.forEach(dot => {
+                dot.addEventListener('click', () => {
+                    state.dashboardActiveSlide = parseInt(dot.dataset.slide);
+                    updateSlider();
+                });
+            });
+
+            // --- Swipe Logic ---
+            let touchStartX = 0;
+            let isDragging = false;
+
+            const dragStart = (e) => {
+                isDragging = true;
+                touchStartX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+                wrapper.style.transition = 'none'; // Disable transition during drag for immediate feedback
+            };
+
+            const dragMove = (e) => {
+                if (!isDragging) return;
+                e.preventDefault(); // Prevent page scrolling while swiping
+                const currentX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+                const diffX = currentX - touchStartX;
+                wrapper.style.transform = `translateX(calc(-${state.dashboardActiveSlide * 100}% + ${diffX}px))`;
+            };
+
+            const dragEnd = (e) => {
+                if (!isDragging) return;
+                isDragging = false;
+                const touchEndX = e.type === 'touchend' ? e.changedTouches[0].clientX : e.clientX;
+                
+                const swipeThreshold = 50; // Minimum distance in pixels for a swipe
+                if (touchStartX - touchEndX > swipeThreshold) {
+                    // Swiped left
+                    state.dashboardActiveSlide = (state.dashboardActiveSlide < totalSlides - 1) ? state.dashboardActiveSlide + 1 : state.dashboardActiveSlide;
+                } else if (touchEndX - touchStartX > swipeThreshold) {
+                    // Swiped right
+                    state.dashboardActiveSlide = (state.dashboardActiveSlide > 0) ? state.dashboardActiveSlide - 1 : state.dashboardActiveSlide;
+                }
+                
+                updateSlider();
+            };
+
+            container.addEventListener('mousedown', dragStart);
+            container.addEventListener('touchstart', dragStart, { passive: true });
+
+            container.addEventListener('mousemove', dragMove);
+            container.addEventListener('touchmove', dragMove, { passive: false });
+
+            document.addEventListener('mouseup', dragEnd); // Use document to catch mouseup outside the container
+            container.addEventListener('touchend', dragEnd);
+            container.addEventListener('mouseleave', () => { if(isDragging) dragEnd({ clientX: touchStartX }) }); // Cancel drag if mouse leaves
+
+            updateSlider(); // Initialize
+        }
+
+
+        function saveAndValidateCurrentChecklistPdv() {
+            const pdv = db.pdvs.filter(p => p.storeId === state.activeChecklist.storeId)[state.currentChecklistPdvIndex];
+            const lastStatus = getLastPdvStatus(pdv.id);
+            const lastStatusId = lastStatus ? lastStatus.statusId : db.statusTypes.find(s=>s.name==='Sem status').id;
+            
+            const selectedStatusId = parseInt(document.getElementById('checklist-new-status').value);
+            const okStatusId = db.statusTypes.find(s => s.name === 'Ok').id;
+            const observation = document.getElementById('checklist-observation').value.trim();
+
+            if (selectedStatusId !== lastStatusId && observation.length < 4) {
+                 showToast('Observação de no mínimo 4 caracteres é obrigatória ao alterar o status.', 'error');
+                return false;
+            }
+
+            let checkData = state.activeChecklist.pdvChecks.find(c => c.pdvId === pdv.id);
+            if (!checkData) {
+                checkData = { pdvId: pdv.id, issues: [] };
+                state.activeChecklist.pdvChecks.push(checkData);
+            }
+            
+            if (selectedStatusId === okStatusId) {
+                checkData.result = 'ok';
+                checkData.issues = [];
+            } else {
+                checkData.result = 'problem';
+                checkData.issues = Array.from(document.querySelectorAll('.checklist-item-checkbox:checked')).map(cb => cb.dataset.itemid);
+            }
+            checkData.newStatusId = selectedStatusId;
+            checkData.observation = observation;
+
+            return true; // Validation passed
+        }
+
+        function renderApplyChecklistItemModal() {
+            const listEl = document.getElementById('apply-item-stores-list');
+            document.getElementById('apply-item-text').textContent = state.checklistItemToAdd;
+            listEl.innerHTML = db.stores.map(store => `
+                <div class="flex items-center">
+                    <input id="store-apply-${store.id}" data-storeid="${store.id}" type="checkbox" ${store.id === state.selectedStoreId ? 'checked' : ''} class="h-4 w-4 text-indigo-600 border-gray-300 rounded store-apply-checkbox">
+                    <label for="store-apply-${store.id}" class="ml-2 block text-sm text-gray-900">${store.name}</label>
+                </div>
+            `).join('');
+            document.getElementById('apply-item-all-stores').checked = false;
+        }
+
+        // --- EVENT LISTENERS ---
+        function setupAllEventListeners() {
+            document.getElementById('login-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const username = e.target.username.value; const password = e.target.password.value;
+                const user = db.users.find(u => u.username === username);
+                const errorEl = document.getElementById('login-error');
+                if (!user) { errorEl.textContent = 'Usuário não encontrado.'; errorEl.classList.remove('hidden'); return; }
+                if (!password) {
+                    if (user.password === null) { state.userForPasswordChange = user.username; state.isFirstLoginForPasswordChange = true; showModal('password-change'); } 
+                    else { errorEl.textContent = 'Senha é obrigatória.'; errorEl.classList.remove('hidden'); }
+                    return;
+                }
+                if (user.password === password) {
+                    user.lastLogin = new Date().toISOString(); 
+                    if(document.getElementById('keep-connected').checked) {
+                        localStorage.setItem('loggedInUserId', user.id);
+                    }
+                    saveDb();
+                    state.loggedInUser = user;
+                    let defaultStore = user.storeId ? db.stores.find(s => s.id === user.storeId) : null;
+                    state.currentStore = defaultStore || (db.stores.length > 0 ? db.stores[0] : null);
+                    errorEl.classList.add('hidden'); e.target.reset(); showScreen('pdv');
+                } else { errorEl.textContent = 'Usuário ou senha inválidos.'; errorEl.classList.remove('hidden'); }
+            });
+            document.getElementById('change-password-link').addEventListener('click', (e) => {
+                e.preventDefault(); const username = document.getElementById('username').value;
+                if (!username) return showToast('Por favor, informe seu usuário primeiro.', 'error');
+                const user = db.users.find(u => u.username === username);
+                if (!user) return showToast('Usuário não encontrado.', 'error');
+                state.userForPasswordChange = user.username; state.isFirstLoginForPasswordChange = (user.password === null); showModal('password-change');
+            });
+            
+            document.getElementById('open-menu-btn').addEventListener('click', openMenu);
+            document.getElementById('close-menu-btn').addEventListener('click', closeMenu);
+            document.getElementById('menu-overlay').addEventListener('click', closeMenu);
+            document.getElementById('logout-btn').addEventListener('click', e => { e.preventDefault(); handleLogout(); });
+            document.getElementById('admin-panel-btn').addEventListener('click', e => { e.preventDefault(); closeMenu(); showScreen('admin-main-menu'); });
+            document.getElementById('main-panel-btn').addEventListener('click', e => { e.preventDefault(); closeMenu(); showScreen('pdv'); });
+            document.getElementById('change-store-btn').addEventListener('click', e => { e.preventDefault(); closeMenu(); showModal('select-store'); });
+            document.getElementById('admin-back-to-pdv-btn').addEventListener('click', () => showScreen('pdv'));
+            document.querySelectorAll('.admin-back-to-main-menu-btn').forEach(btn => btn.addEventListener('click', () => showScreen('admin-main-menu')));
+            document.querySelectorAll('.admin-back-to-logs-menu-btn').forEach(btn => btn.addEventListener('click', () => showScreen('admin-logs-menu')));
+            document.getElementById('goto-users-list-btn').addEventListener('click', () => showScreen('admin-users-list'));
+            document.getElementById('back-to-users-menu-btn').addEventListener('click', () => showScreen('admin-users'));
+            document.getElementById('back-to-pdv-from-checklist-btn').addEventListener('click', () => showScreen('pdv'));
+            document.getElementById('back-from-pdv-items-btn').addEventListener('click', () => showScreen('admin-stores'));
+            
+            // --- Modals & Simple Forms ---
+            ['close-details-modal-btn', 'cancel-add-status-btn', 'cancel-store-selection-btn', 'close-manage-store-modal-btn', 'cancel-edit-user-btn', 'cancel-edit-store-btn', 'cancel-password-change-btn', 'cancel-confirmation-btn', 'cancel-edit-role-btn', 'close-view-checklist-modal-btn', 'close-checklist-help-btn', 'cancel-apply-item-btn'].forEach(id => {
+                document.getElementById(id)?.addEventListener('click', (e) => {
+                    let newModal = null;
+                    if(e.target.id === 'cancel-add-status-btn') newModal = 'pdv-details';
+                    else if(e.target.id === 'cancel-checklist-config-btn' || e.target.id === 'cancel-apply-item-btn') newModal = 'manage-store';
+                    else if(e.target.id === 'close-checklist-help-btn') newModal = 'checklist-pdv';
+                    showModal(newModal);
+                });
+            });
+            document.getElementById('add-status-btn').addEventListener('click', () => showModal('add-status'));
+            document.getElementById('store-selection-list').addEventListener('click', (e) => {
+                const target = e.target.closest('.store-item'); if (!target) return;
+                state.currentStore = db.stores.find(s => s.id === parseInt(target.dataset.storeid));
+                showModal(null); renderPdvScreen();
+            });
+            document.getElementById('add-status-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const statusId = parseInt(document.getElementById('status-select').value);
+                const description = document.getElementById('status-description').value;
+                const itemId = document.getElementById('status-item-select').value ? parseInt(document.getElementById('status-item-select').value) : null;
+                const okStatusId = db.statusTypes.find(s => s.name === 'Ok').id;
+
+                const newHistoryEntry = { 
+                    id: (db.statusHistory.length ? Math.max(...db.statusHistory.map(h => h.id)) : 0) + 1, 
+                    pdvId: state.selectedPdvId, 
+                    statusId, 
+                    description, 
+                    techId: state.loggedInUser.id, 
+                    timestamp: new Date().toISOString() 
+                };
+
+                if (statusId !== okStatusId && itemId) {
+                    newHistoryEntry.itemId = itemId;
+                }
+
+                db.statusHistory.push(newHistoryEntry);
+                saveDb(); 
+                renderPdvScreen(); 
+                showToast('Status salvo com sucesso!'); 
+                showModal('pdv-details');
+            });
+            document.getElementById('status-select').addEventListener('change', e => {
+                const container = document.getElementById('status-item-selection-container');
+                const okStatusId = db.statusTypes.find(s => s.name === 'Ok').id.toString();
+                container.classList.toggle('hidden', e.target.value === okStatusId);
+            });
+            document.getElementById('password-change-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const user = db.users.find(u => u.username === state.userForPasswordChange);
+                const errorEl = document.getElementById('password-change-error');
+                const newPass = document.getElementById('new-password').value;
+                const confirmPass = document.getElementById('confirm-new-password').value;
+                
+                errorEl.classList.add('hidden');
+
+                if (newPass !== confirmPass) {
+                    errorEl.textContent = 'As novas senhas não coincidem.';
+                    return errorEl.classList.remove('hidden');
+                }
+                if (newPass.length < 3) {
+                    errorEl.textContent = 'A nova senha deve ter no mínimo 3 caracteres.';
+                    return errorEl.classList.remove('hidden');
+                }
+                
+                if (state.isFirstLoginForPasswordChange) {
+                    user.password = newPass;
+                    logAction(`Usuário "${user.name}" definiu sua senha.`, {}, user);
+                    showModal(null);
+                    showToast('Senha definida! Você já pode fazer o login.');
+                    document.getElementById('password').focus();
+                } else {
+                    const currentPass = document.getElementById('current-password').value;
+                    if (currentPass !== user.password) {
+                        errorEl.textContent = 'A senha atual está incorreta.';
+                        return errorEl.classList.remove('hidden');
+                    }
+                    user.password = newPass;
+                    logAction(`Usuário "${user.name}" alterou sua senha.`, {}, user);
+                    showModal(null);
+                    showToast('Senha alterada com sucesso!');
+                }
+                saveDb();
+            });
+
+            // --- Forms with Confirmation ---
+            document.getElementById('confirmation-form').addEventListener('submit', (e) => {
+                e.preventDefault(); const password = document.getElementById('confirmation-password').value;
+                if (password === state.loggedInUser.password) { if (typeof state.actionToConfirm === 'function') state.actionToConfirm(); document.getElementById('confirmation-error').classList.add('hidden'); showModal(null); } 
+                else { document.getElementById('confirmation-error').classList.remove('hidden'); }
+            });
+            document.getElementById('add-store-form').addEventListener('submit', e => {
+                e.preventDefault(); const name = document.getElementById('new-store-name').value.trim(), start = parseInt(document.getElementById('new-store-pdv-start').value);
+                if (!name || !start) return;
+                const action = () => { db.stores.push({ id: (db.stores.length ? Math.max(...db.stores.map(s => s.id)) : 0) + 1, name, pdvNamingStart: start, checklistConfig: { items: [], noChecklistDaysLimit: 5 } }); logAction(`Criou a loja "${name}".`); saveDb(); renderAdminStoresScreen(); showToast('Loja adicionada!'); e.target.reset(); };
+                showConfirmationModal('Adicionar Loja', `Criar a loja "${name}"?`, action);
+            });
+            document.getElementById('add-user-form').addEventListener('submit', e => {
+                e.preventDefault(); const name = document.getElementById('new-user-name').value, username = document.getElementById('new-user-username').value;
+                const roleId = parseInt(document.getElementById('new-user-role').value), storeId = document.getElementById('new-user-store').value ? parseInt(document.getElementById('new-user-store').value) : null;
+                if(db.users.find(u => u.username === username)) return showToast('Este nome de usuário já existe.', 'error');
+                const action = () => { db.users.push({ id: (db.users.length ? Math.max(...db.users.map(u => u.id)) : 0) + 1, name, username, password: null, roleId, storeId, lastLogin: null }); logAction(`Criou o usuário "${name}".`); saveDb(); e.target.reset(); showToast('Usuário adicionado!'); };
+                showConfirmationModal('Adicionar Usuário', `Confirmar a criação de "${name}"?`, action);
+            });
+            document.getElementById('edit-user-form').addEventListener('submit', e => {
+                e.preventDefault(); const userId = parseInt(document.getElementById('edit-user-id').value), user = db.users.find(u => u.id === userId); if (!user) return;
+                const newUsername = document.getElementById('edit-user-username').value; if(newUsername !== user.username && db.users.find(u => u.username === newUsername)) return showToast('Este nome de usuário já existe.', 'error');
+                const action = () => {
+                    logAction(`Editou o usuário "${user.name}".`); user.name = document.getElementById('edit-user-name').value; user.username = newUsername; user.roleId = parseInt(document.getElementById('edit-user-role').value); user.storeId = document.getElementById('edit-user-store').value ? parseInt(document.getElementById('edit-user-store').value) : null;
+                    saveDb(); renderAdminUsersListScreen(); showToast('Usuário atualizado!');
+                };
+                showConfirmationModal('Editar Usuário', `Confirmar as alterações em "${user.name}"?`, action);
+            });
+            document.getElementById('edit-store-form').addEventListener('submit', e => {
+                e.preventDefault(); const storeId = parseInt(document.getElementById('edit-store-id').value), store = db.stores.find(s => s.id === storeId);
+                const newName = document.getElementById('edit-store-name').value, newStart = parseInt(document.getElementById('edit-store-pdv-start').value);
+                if (!store || !newName || !newStart) return;
+                const action = () => { logAction(`Alterou a loja "${store.name}".`); store.name = newName; store.pdvNamingStart = newStart; saveDb(); renderAdminStoresScreen(); showToast('Loja atualizada!'); };
+                showConfirmationModal('Editar Loja', `Alterar dados da loja "${store.name}"?`, action);
+            });
+            document.getElementById('add-pdv-to-store-form').addEventListener('submit', e => {
+                e.preventDefault(); const startNumberStr = document.getElementById('new-pdv-start-number').value.trim(), quantity = parseInt(document.getElementById('new-pdv-quantity').value);
+                if (!startNumberStr || !quantity || quantity < 1) return showToast('Dados inválidos.', 'error');
+                const action = () => {
+                    let createdCount = 0; const isNumeric = /^\d+$/.test(startNumberStr); const startNumber = isNumeric ? parseInt(startNumberStr, 10) : 0;
+                    for (let i = 0; i < quantity; i++) {
+                        const newPdvNumber = isNumeric ? (startNumber + i).toString() : `${startNumberStr}-${i+1}`;
+                        if (!db.pdvs.some(p => p.storeId === state.selectedStoreId && p.number === newPdvNumber)) { db.pdvs.push({ id: (db.pdvs.length ? Math.max(...db.pdvs.map(p => p.id)) : 0) + 1, storeId: state.selectedStoreId, number: newPdvNumber }); createdCount++; }
+                    }
+                    logAction(`Criou ${createdCount} PDV(s) na loja ${db.stores.find(s=>s.id === state.selectedStoreId).name}.`);
+                    saveDb(); renderManageStoreModal(); showToast(`${createdCount} PDV(s) criados!`); e.target.reset();
+                };
+                showConfirmationModal('Criação Rápida', `Criar ${quantity} PDV(s) a partir de "${startNumberStr}"?`, action);
+            });
+             document.getElementById('add-role-form').addEventListener('submit', e => {
+                e.preventDefault(); const name = document.getElementById('new-role-name').value.trim(); if(!name) return;
+                 const action = () => { db.roles.push({ id: (db.roles.length ? Math.max(...db.roles.map(r => r.id)) : 0) + 1, name, permissions: {} }); logAction(`Criou o cargo "${name}".`); saveDb(); renderAdminRolesScreen(); showToast('Cargo criado!'); e.target.reset(); };
+                showConfirmationModal('Criar Cargo', `Confirmar a criação do cargo "${name}"?`, action);
+             });
+            document.getElementById('edit-role-form').addEventListener('submit', e => {
+                e.preventDefault(); const roleId = parseInt(document.getElementById('edit-role-id').value), role = db.roles.find(r => r.id === roleId); if(!role) return;
+                const action = () => {
+                    const newPermissions = {};
+                    e.target.querySelectorAll('input[type="checkbox"]').forEach(c => { newPermissions[c.name] = c.checked; });
+                    newPermissions.editPdvStatus = e.target.querySelector('#perm-editPdvStatus').value;
+                    role.permissions = newPermissions;
+                    logAction(`Alterou as permissões do cargo "${role.name}".`); saveDb(); renderAdminRolesScreen(); showToast('Permissões salvas!');
+                };
+                showConfirmationModal('Salvar Permissões', `Alterar as permissões para "${role.name}"?`, action);
+            });
+            document.getElementById('add-status-type-form').addEventListener('submit', e => {
+                e.preventDefault();
+                const name = document.getElementById('new-status-name').value, color = document.getElementById('new-status-color').value;
+                const action = () => { db.statusTypes.push({ id: (db.statusTypes.length ? Math.max(...db.statusTypes.map(s=>s.id)) : 0) + 1, name, color }); logAction(`Criou o status "${name}".`); saveDb(); applyStatusColors(); renderAdminStatusScreen(); showToast('Status adicionado!'); e.target.reset(); };
+                showConfirmationModal('Adicionar Status', `Criar o status "${name}"?`, action);
+            });
+            
+            // --- Navigation from Admin Menu ---
+            document.getElementById('admin-stores-screen').addEventListener('click', e => {
+                if (e.target.closest('#goto-pdv-items-btn')) {
+                    showScreen('admin-pdv-items');
+                }
+            });
+            
+            document.getElementById('goto-admin-logs-btn').addEventListener('click', () => showScreen('admin-administrative-logs'));
+            document.getElementById('goto-pdv-logs-btn').addEventListener('click', () => showScreen('admin-pdv-logs'));
+
+            // --- Filters & Pagination ---
+            document.getElementById('checklist-history-store-filter').addEventListener('change', renderChecklistHistoryScreen);
+            document.getElementById('pdv-log-store-filter').addEventListener('change', () => {
+                state.showFullPdvLogs = false;
+                renderPdvLogsScreen();
+            });
+            document.getElementById('admin-logs-list').addEventListener('click', e => {
+                if (e.target.id === 'show-full-admin-logs-btn') {
+                    state.showFullAdminLogs = true;
+                    renderAdministrativeLogsScreen();
+                }
+            });
+             document.getElementById('pdv-logs-list').addEventListener('click', e => {
+                if (e.target.id === 'show-full-pdv-logs-btn') {
+                    state.showFullPdvLogs = true;
+                    renderPdvLogsScreen();
+                }
+            });
+
+
+            // --- Event Delegation ---
+            document.getElementById('app-container').addEventListener('click', e => {
+                const target = e.target;
+                if(target.matches('.view-checklist-log-btn, .view-checklist-history-btn')) {
+                    const checklistId = parseInt(target.dataset.checklistid);
+                    if(checklistId) { state.selectedChecklistId = checklistId; showModal('view-checklist'); }
+                    return;
+                }
+                if(target.matches('.remove-pdv-item-btn')) {
+                    const itemId = parseInt(target.dataset.itemid);
+                    const item = db.pdvItems.find(i => i.id === itemId);
+                    if (!item) return;
+                    const action = () => {
+                        db.pdvItems = db.pdvItems.filter(i => i.id !== itemId);
+                        logAction(`Removeu o item de PDV padrão "${item.name}".`);
+                        saveDb();
+                        renderAdminPdvItemsScreen();
+                        showToast('Item padrão removido!');
+                    };
+                    showConfirmationModal('Remover Item Padrão', `Remover "${item.name}" da lista de itens padrão? Isso não afetará checklists antigos.`, action);
+                    return;
+                }
+                const el = target.closest('[data-userid], [data-storeid], [data-pdvid], [data-statusid], [data-roleid]');
+                if(!el) return;
+                const { userid, storeid, pdvid, statusid, roleid } = el.dataset;
+                if (target.matches('.remove-user-btn')) {
+                    const user = db.users.find(u => u.id === parseInt(userid)); if (!user) return;
+                    if (user.username === 'admin') return showToast('O usuário "admin" não pode ser removido.', 'error');
+                    if (user.id === state.loggedInUser.id) return showToast('Você não pode remover a si mesmo.', 'error');
+                    const action = () => { db.users = db.users.filter(u => u.id !== user.id); logAction(`Removeu o usuário "${user.name}".`); saveDb(); renderAdminUsersListScreen(); showToast('Usuário removido!'); };
+                    showConfirmationModal('Remover Usuário', `Remover "${user.name}"?`, action);
+                } else if (target.matches('.edit-user-btn')) { state.selectedUserId = parseInt(userid); showModal('edit-user'); }
+                else if (target.matches('.remove-store-btn')) {
+                    const store = db.stores.find(s => s.id === parseInt(storeid)); if (!store) return;
+                    const action = () => { db.stores = db.stores.filter(s => s.id !== store.id); db.pdvs = db.pdvs.filter(p => p.storeId !== store.id); logAction(`Removeu a loja "${store.name}".`); saveDb(); renderAdminStoresScreen(); showToast('Loja removida!'); };
+                    showConfirmationModal('Remover Loja', `Remover "${store.name}" e seus PDVs?`, action);
+                } else if (target.matches('.edit-store-btn')) { state.selectedStoreId = parseInt(storeid); showModal('edit-store'); }
+                else if (target.matches('.manage-store-btn')) { state.selectedStoreId = parseInt(storeid); showModal('manage-store'); }
+                else if (target.matches('.remove-pdv-btn')) {
+                    const pdv = db.pdvs.find(p => p.id === parseInt(pdvid)); if(!pdv) return;
+                    const action = () => { db.pdvs = db.pdvs.filter(p => p.id !== pdv.id); logAction(`Removeu o PDV Caixa ${pdv.number}.`); saveDb(); renderManageStoreModal(); showToast('PDV removido!'); };
+                    showConfirmationModal('Remover PDV', `Remover o Caixa ${pdv.number}?`, action);
+                } else if (target.matches('.remove-status-btn')) {
+                    const status = db.statusTypes.find(s => s.id === parseInt(statusid)); if(!status) return;
+                    const action = () => { db.statusTypes = db.statusTypes.filter(s => s.id !== status.id); logAction(`Removeu o status "${status.name}".`); saveDb(); applyStatusColors(); renderAdminStatusScreen(); showToast('Status removido!'); };
+                    showConfirmationModal('Remover Status', `Remover o status "${status.name}"?`, action);
+                } else if (target.matches('.edit-role-btn')) { state.selectedRoleId = parseInt(roleid); showModal('edit-role'); }
+                else if (target.matches('.remove-role-btn')) {
+                    const role = db.roles.find(r => r.id === parseInt(roleid)); if(!role) return;
+                    if (db.users.some(u => u.roleId === role.id)) return showToast('Não é possível remover um cargo em uso.', 'error');
+                    const action = () => { db.roles = db.roles.filter(r => r.id !== role.id); logAction(`Removeu o cargo "${role.name}".`); saveDb(); renderAdminRolesScreen(); showToast('Cargo removido!'); };
+                    showConfirmationModal('Remover Cargo', `Remover o cargo "${role.name}"?`, action);
+                }
+            });
+            
+            document.getElementById('add-pdv-item-form').addEventListener('submit', e => {
+                e.preventDefault();
+                const name = document.getElementById('new-pdv-item-name').value.trim();
+                if (!name) return;
+                const action = () => {
+                    const newId = (db.pdvItems.length ? Math.max(...db.pdvItems.map(i => i.id)) : 0) + 1;
+                    db.pdvItems.push({ id: newId, name });
+                    logAction(`Adicionou o item de PDV padrão "${name}".`);
+                    saveDb();
+                    renderAdminPdvItemsScreen();
+                    e.target.reset();
+                    showToast('Item padrão adicionado!');
+                };
+                showConfirmationModal('Adicionar Item Padrão', `Adicionar "${name}" à lista de itens padrão para todas as lojas?`, action);
+            });
+
+
+            // --- CHECKLIST LISTENERS ---
+            document.getElementById('pdv-screen').addEventListener('click', e => {
+                if(e.target.id === 'start-checklist-btn') {
+                    const today = getTodayDateString(); let checklist = db.checklists.find(c => c.storeId === state.currentStore.id && c.date === today);
+                    state.activeChecklist = checklist ? JSON.parse(JSON.stringify(checklist)) : { storeId: state.currentStore.id, date: today, status: 'in-progress', pdvChecks: [] };
+                    showScreen('checklist');
+                }
+            });
+            document.getElementById('checklist-pdv-list').addEventListener('click', e => { const card = e.target.closest('.checklist-pdv-card'); if(card) { state.currentChecklistPdvIndex = parseInt(card.dataset.index); showModal('checklist-pdv'); }});
+            
+            document.getElementById('checklist-new-status').addEventListener('change', e => {
+                const okStatus = db.statusTypes.find(s => s.name === 'Ok');
+                const isProblem = e.target.value != okStatus.id;
+                document.getElementById('checklist-pdv-items').classList.toggle('hidden', !isProblem);
+            });
+
+            document.getElementById('checklist-pdv-modal').addEventListener('click', e => {
+                if (e.target.closest('#checklist-help-btn')) {
+                    showModal('checklist-help');
+                    return;
+                }
+                const pdv = db.pdvs.filter(p => p.storeId === state.activeChecklist.storeId)[state.currentChecklistPdvIndex];
+                let checkData = state.activeChecklist.pdvChecks.find(c => c.pdvId === pdv.id);
+                if (!checkData) { checkData = { pdvId: pdv.id, issues: [] }; state.activeChecklist.pdvChecks.push(checkData); }
+                
+                if(e.target.matches('.checklist-item-checkbox')) { const itemId = e.target.dataset.itemid; if(e.target.checked) { if(!checkData.issues.includes(itemId)) checkData.issues.push(itemId); } else { checkData.issues = checkData.issues.filter(id => id !== itemId); } }
+                else if (e.target.id === 'checklist-ok-btn') { checkData.result = 'ok'; checkData.issues = []; checkData.observation = document.getElementById('checklist-observation').value; checkData.newStatusId = db.statusTypes.find(s=>s.name==='Ok').id; showModal(null); renderChecklistScreen(); }
+                else if (e.target.id === 'checklist-busy-btn') { checkData.result = 'busy'; checkData.issues = []; checkData.observation = "Caixa Ocupado"; showModal(null); renderChecklistScreen(); }
+                else if (e.target.id === 'checklist-save-and-close-btn') {
+                    if (!saveAndValidateCurrentChecklistPdv()) return;
+                    showModal(null); 
+                    renderChecklistScreen();
+                }
+                else if (e.target.id === 'checklist-prev-pdv-btn' && state.currentChecklistPdvIndex > 0) { 
+                    if(saveAndValidateCurrentChecklistPdv()) {
+                        state.currentChecklistPdvIndex--; 
+                        renderChecklistPdvModal(); 
+                    }
+                }
+                else if (e.target.id === 'checklist-next-pdv-btn') { 
+                    const pdvCount = db.pdvs.filter(p => p.storeId === state.activeChecklist.storeId).length; 
+                    if(state.currentChecklistPdvIndex < pdvCount - 1) { 
+                        if(saveAndValidateCurrentChecklistPdv()) {
+                            state.currentChecklistPdvIndex++; 
+                            renderChecklistPdvModal();
+                        }
+                    } 
+                }
+            });
+
+            document.getElementById('save-checklist-btn').addEventListener('click', () => {
+                let checklist = db.checklists.find(c => c.id === state.activeChecklist.id);
+                if(checklist) { Object.assign(checklist, state.activeChecklist); } else { state.activeChecklist.id = (db.checklists.length ? Math.max(...db.checklists.map(c => c.id)) : 0) + 1; db.checklists.push(state.activeChecklist); }
+                logAction(`Salvou o progresso do checklist da loja ${state.currentStore.name}.`); saveDb(); showToast('Progresso salvo!', 'info');
+            });
+            document.getElementById('finalize-checklist-btn').addEventListener('click', () => {
+                const allPdvsInStore = db.pdvs.filter(p => p.storeId === state.activeChecklist.storeId);
+                const processedPdvs = state.activeChecklist.pdvChecks;
+                const allProcessed = allPdvsInStore.every(pdv => {
+                    const checkData = processedPdvs.find(c => c.pdvId === pdv.id);
+                    return checkData && ['ok', 'problem', 'busy'].includes(checkData.result);
+                });
+
+                if (!allProcessed) {
+                    showToast('Todos os caixas devem ser verificados antes de finalizar.', 'error');
+                    return;
+                }
+
+                const action = () => {
+                    let checklist = db.checklists.find(c => c.id === state.activeChecklist.id); 
+                    state.activeChecklist.status = 'completed';
+                    state.activeChecklist.finalizedByUserId = state.loggedInUser.id;
+                    if(checklist) { 
+                        Object.assign(checklist, state.activeChecklist); 
+                    } else { 
+                        state.activeChecklist.id = (db.checklists.length ? Math.max(...db.checklists.map(c => c.id)) : 0) + 1; 
+                        db.checklists.push(state.activeChecklist);
+                        checklist = state.activeChecklist;
+                    }
+                    state.activeChecklist.pdvChecks.forEach(pc => {
+                        const description = `[CHECKLIST] ${pc.observation || (pc.result === 'ok' ? 'Tudo OK.' : 'Problema reportado.')}`;
+                        let statusId;
+                        if(pc.result === 'problem') statusId = pc.newStatusId;
+                        else if(pc.result === 'ok') statusId = db.statusTypes.find(s=>s.name==='Ok').id;
+                        if(statusId) db.statusHistory.push({ id: (db.statusHistory.length ? Math.max(...db.statusHistory.map(h => h.id)) : 0) + 1, pdvId: pc.pdvId, statusId, description, techId: state.loggedInUser.id, timestamp: new Date().toISOString() });
+                    });
+                    logAction(`Finalizou o checklist da loja ${state.currentStore.name}.`, { checklistId: checklist.id });
+                    saveDb(); 
+                    showToast('Checklist finalizado!'); 
+                    showScreen('pdv');
+                };
+                showConfirmationModal('Finalizar Checklist', 'Deseja finalizar e aplicar todas as alterações?', action);
+            });
+            document.getElementById('manage-store-modal').addEventListener('click', e => { if(e.target.id === 'goto-checklist-config-btn') showModal('checklist-config'); });
+            
+            document.getElementById('cancel-checklist-config-btn').addEventListener('click', () => showModal('manage-store'));
+
+            document.getElementById('add-checklist-item-form').addEventListener('submit', e => {
+                e.preventDefault(); 
+                const text = document.getElementById('new-checklist-item-text').value.trim(); 
+                if(!text) return;
+                state.checklistItemToAdd = text;
+                showModal('apply-checklist-item');
+            });
+
+            document.getElementById('apply-item-all-stores').addEventListener('change', e => {
+                document.querySelectorAll('.store-apply-checkbox').forEach(checkbox => {
+                    checkbox.checked = e.target.checked;
+                });
+            });
+
+            document.getElementById('confirm-apply-item-btn').addEventListener('click', () => {
+                const selectedStoreIds = Array.from(document.querySelectorAll('.store-apply-checkbox:checked')).map(cb => parseInt(cb.dataset.storeid));
+                if (selectedStoreIds.length === 0) {
+                    showToast('Selecione ao menos uma loja.', 'error');
+                    return;
+                }
+                const action = () => {
+                    selectedStoreIds.forEach(storeId => {
+                        const store = db.stores.find(s => s.id === storeId);
+                        if (store) {
+                            const newId = (store.checklistConfig.items.length ? Math.max(...store.checklistConfig.items.map(i => i.id)) : 0) + 1;
+                            store.checklistConfig.items.push({ id: newId, text: state.checklistItemToAdd });
+                        }
+                    });
+                    logAction(`Adicionou item de checklist "${state.checklistItemToAdd}" para ${selectedStoreIds.length} loja(s).`);
+                    saveDb();
+                    showToast('Item de checklist adicionado!');
+                    state.checklistItemToAdd = null;
+                    showModal('checklist-config');
+                    renderChecklistConfigModal();
+                };
+                showConfirmationModal('Adicionar Item', `Confirmar a adição do item para as lojas selecionadas?`, action);
+            });
+
+            document.getElementById('checklist-config-modal').addEventListener('click', e => {
+                 if(e.target.matches('.remove-checklist-item-btn')) {
+                    const itemId = parseInt(e.target.dataset.itemid); 
+                    const store = db.stores.find(s => s.id === state.selectedStoreId);
+                    store.checklistConfig.items = store.checklistConfig.items.filter(i => i.id !== itemId); 
+                    renderChecklistConfigModal();
+                 }
+            });
+            document.getElementById('save-checklist-config-btn').addEventListener('click', () => {
+                const action = () => {
+                    const store = db.stores.find(s => s.id === state.selectedStoreId);
+                    store.checklistConfig.noChecklistDaysLimit = parseInt(document.getElementById('checklist-days-limit').value);
+                    logAction(`Atualizou configs de checklist para a loja ${store.name}.`); saveDb(); showToast('Configurações salvas!'); showModal('manage-store');
+                };
+                showConfirmationModal('Salvar Configurações', 'Confirmar as alterações no checklist?', action);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeDatabase();
+            applyStatusColors();
+            
+            const savedUserId = localStorage.getItem('loggedInUserId');
+            if(savedUserId) {
+                const user = db.users.find(u => u.id == parseInt(savedUserId));
+                if (user) {
+                    state.loggedInUser = user;
+                    let defaultStore = user.storeId ? db.stores.find(s => s.id === user.storeId) : null;
+                    state.currentStore = defaultStore || (db.stores.length > 0 ? db.stores[0] : null);
+                    showScreen('pdv');
+                } else {
+                    showScreen('login');
+                }
+            } else {
+                showScreen('login');
+            }
+            
+            setTimeout(() => {
+                document.getElementById('loading-screen').classList.add('hidden');
+            }, 500);
+
+            setupAllEventListeners(); 
+        });
+    </script>
+</body>
+</html>
+
+
+
+    <!-- 
+
+        A estrutura de pastas deve ser essa:
+    
+            painel-ti-servidor/
+        ├── public/
+        │   ├── index.html    (usaremos tailwind para estilização)   
+        │   └── app.js         
+        ├── database.js      
+        ├── server.js        
+        └── package.json     
+            
+        O banco de dados deve ser em SQlite
+        
+    
+    -->
