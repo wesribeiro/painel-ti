@@ -1,4 +1,5 @@
 // painel-ti-servidor/public/app.js - VERSÃO COM LÓGICA DE 'PROBLEMS' (PENDÊNCIAS)
+// V2.2 - Corrigido bug de chamada duplicada da API no modal 'resolve-problem'
 
 // --- OBJETO AUXILIAR PARA CHAMADAS DE API (ATUALIZADO PARA JWT) ---
 const api = {
@@ -30,7 +31,7 @@ const api = {
 
       if (response.status === 204) {
         return null;
-      } 
+      }
       return await response.json();
     } catch (error) {
       // Relança o erro para que a lógica da aplicação (como o .catch(()=>null)) possa funcionar.
@@ -127,7 +128,7 @@ function getTodayDateString() {
   return new Date().toISOString().split("T")[0];
 }
 async function logAction(description, metadata = {}) {
-  if (!state.loggedInUser) return; 
+  if (!state.loggedInUser) return;
 
   try {
     await api.post("/logs/admin", {
@@ -247,7 +248,7 @@ async function showModal(modalName) {
         "view-checklist": renderViewChecklistModal,
         "checklist-help": renderChecklistHelpModal,
         "apply-checklist-item": renderApplyChecklistItemModal,
-        "resolve-problem": renderResolveProblemModal, // <-- NOVO MODAL
+        "resolve-problem": renderResolveProblemModal,
       };
       if (renderMap[modalName]) await renderMap[modalName]();
       modal.classList.remove("hidden");
@@ -277,7 +278,6 @@ async function renderPdvScreen() {
   if (!state.loggedInUser || !state.currentStore) return handleLogout();
 
   try {
-    // Esta API agora calcula o status com base nos problemas (pendências)
     const [pdvsInStore, todaysChecklist] = await Promise.all([
       api.get(`/stores/${state.currentStore.id}/pdvs-with-status`),
       api
@@ -331,20 +331,18 @@ async function renderPdvScreen() {
       )
       .forEach((pdv) => {
         const lastStatusEntry = pdv.lastStatus;
-        // O status "Sem status" agora é tratado pelo servidor se não houver problemas ou histórico
         const statusInfo = lastStatusEntry
           ? state.allData.statusTypes.find(
               (s) => s.id === lastStatusEntry.statusId
             )
           : state.allData.statusTypes.find((s) => s.name === "Sem status");
-        
+
         const techName = lastStatusEntry?.techName?.split(" ")[0] || "Sistema";
         let obsHtml = lastStatusEntry
           ? `<p class="text-sm text-gray-600 mt-1 truncate">${lastStatusEntry.description} <span class="text-gray-400 font-medium">- ${techName}</span></p>`
           : `<p class="text-sm text-gray-500 mt-1">Nenhuma observação.</p>`;
 
         const pdvCard = document.createElement("div");
-        // A classe de borda agora reflete o status real (seja de problema ou 'Ok')
         pdvCard.className = `bg-white p-4 rounded-lg shadow-sm border-l-4 status-border-${statusInfo.id} cursor-pointer hover:shadow-md transition-shadow`;
         pdvCard.dataset.pdvid = pdv.id;
         pdvCard.innerHTML = `<div class="flex justify-between items-center"><p class="font-bold text-lg">Caixa ${pdv.number}</p><span class="text-sm font-medium status-text-${statusInfo.id}">${statusInfo.name}</span></div>${obsHtml}`;
@@ -423,17 +421,13 @@ async function renderAdminPdvItemsScreen() {
     .join("");
 }
 
-// --- FUNÇÃO MODIFICADA (Início) ---
 async function renderPdvDetailsModal() {
-  // Agora buscamos o histórico E as novas pendências (problemas)
   const [pdv, history, problems] = await Promise.all([
     api.get(`/pdvs/${state.selectedPdvId}`),
     api.get(`/pdvs/${state.selectedPdvId}/history`),
-    api.get(`/pdvs/${state.selectedPdvId}/problems`), // <-- NOVA API
+    api.get(`/pdvs/${state.selectedPdvId}/problems`),
   ]);
 
-  // A lógica do status atual NÃO MUDA, pois o `renderPdvScreen` (que usa a API 'pdvs-with-status')
-  // já mostrou o status correto (baseado em problemas). Aqui só precisamos do histórico.
   const lastStatus = history[0];
   const statusInfo = lastStatus
     ? state.allData.statusTypes.find((s) => s.id === lastStatus.statusId)
@@ -453,28 +447,45 @@ async function renderPdvDetailsModal() {
   const problemsListEl = document.getElementById("modal-pdv-problems-list");
   problemsListEl.innerHTML = ""; // Limpa a lista
   if (problems.length === 0) {
-    problemsListEl.innerHTML = '<p class="text-gray-500">Nenhuma pendência neste PDV.</p>';
+    problemsListEl.innerHTML =
+      '<p class="text-gray-500">Nenhuma pendência neste PDV.</p>';
   } else {
-    problems.forEach(problem => {
-      if (problem.status !== 'Resolvido') {
+    problems.forEach((problem) => {
+      // O 'problem.itemName' agora vem da API (server.js)
+      const problemTitle = problem.itemName || "Problema Geral";
+      const problemDescription = problem.title; // 'title' é a descrição original
+
+      if (problem.status !== "Resolvido") {
         // Pendência Aberta (vermelho, clicável)
-        const reportedAt = new Date(problem.created_at).toLocaleString('pt-BR');
+        const reportedAt = new Date(problem.created_at).toLocaleString("pt-BR");
         problemsListEl.innerHTML += `
-          <div class="bg-red-50 border-l-4 border-red-500 p-3 rounded-r-md cursor-pointer hover:bg-red-100 problem-item" data-problemid="${problem.id}">
+          <div class="bg-red-50 border-l-4 border-red-500 p-3 rounded-r-md cursor-pointer hover:bg-red-100 problem-item" data-problemid="${
+            problem.id
+          }">
               <div class="flex justify-between items-center">
-                  <p class="font-medium text-red-700">${problem.title}</p>
-                  <span class="text-xs font-semibold text-red-600">${problem.status}</span>
+                  <p class="font-medium text-red-700">${problemTitle}</p>
+                  <span class="text-xs font-semibold text-red-600">${
+                    problem.status
+                  }</span>
               </div>
-              <p class="text-xs text-gray-600">Reportado por ${problem.reportedByTechName || 'Sistema'} em ${reportedAt}</p>
+              <p class="text-sm text-gray-800 mt-1">${problemDescription}</p>
+              <p class="text-xs text-gray-600 mt-1">Reportado por ${
+                problem.reportedByTechName || "Sistema"
+              } em ${reportedAt}</p>
           </div>
         `;
       } else {
         // Pendência Resolvida (cinza, riscado)
-        const resolvedAt = new Date(problem.resolved_at).toLocaleString('pt-BR');
+        const resolvedAt = new Date(problem.resolved_at).toLocaleString(
+          "pt-BR"
+        );
         problemsListEl.innerHTML += `
           <div class="bg-gray-50 border-l-4 border-gray-400 p-3 rounded-r-md opacity-75">
-              <p class="font-medium text-gray-500 line-through">${problem.title}</p>
-              <p class="text-xs text-gray-600">Resolvido por ${problem.resolvedByTechName || 'Sistema'} em ${resolvedAt}</p>
+              <p class="font-medium text-gray-500 line-through">${problemTitle}</p>
+              <p class="text-sm text-gray-600 line-through mt-1">${problemDescription}</p>
+              <p class="text-xs text-gray-500 mt-1">Resolvido por ${
+                problem.resolvedByTechName || "Sistema"
+              } em ${resolvedAt}</p>
           </div>
         `;
       }
@@ -507,35 +518,40 @@ async function renderPdvDetailsModal() {
           })
           .join("");
 }
-// --- FUNÇÃO MODIFICADA (Fim) ---
 
-// --- NOVA FUNÇÃO (Início) ---
+// ########### ALTERAÇÃO V2.2 AQUI (Bug da API Duplicada) ###########
 async function renderResolveProblemModal() {
   try {
-    const problem = await api.get(`/api/problems/${state.selectedProblemId}`);
+    // CORREÇÃO: Removido o '/api' duplicado da chamada
+    const problem = await api.get(`/problems/${state.selectedProblemId}`);
+
     if (!problem) {
       showToast("Problema não encontrado.", "error");
-      return showModal('pdv-details'); // Volta para o modal anterior
+      return showModal("pdv-details"); // Volta para o modal anterior
     }
 
     // Preenche os dados do problema no modal
     document.getElementById("resolve-problem-id").value = problem.id;
-    document.getElementById("resolve-problem-title").textContent = problem.title;
-    document.getElementById("resolve-problem-reporter").textContent = problem.reportedByTechName || 'Desconhecido';
-    document.getElementById("resolve-problem-date").textContent = new Date(problem.created_at).toLocaleString('pt-BR');
-    document.getElementById("resolve-problem-item").textContent = problem.itemName || 'N/A';
-    
+    document.getElementById("resolve-problem-title").textContent =
+      problem.description; // Usamos a descrição completa
+    document.getElementById("resolve-problem-reporter").textContent =
+      problem.reportedByTechName || "Desconhecido";
+    document.getElementById("resolve-problem-date").textContent = new Date(
+      problem.created_at
+    ).toLocaleString("pt-BR");
+    document.getElementById("resolve-problem-item").textContent =
+      problem.itemName || "N/A";
+
     // Limpa o formulário
     document.getElementById("resolve-problem-form").reset();
     document.getElementById("resolve-problem-error").classList.add("hidden");
-
   } catch (error) {
+    // Este 'catch' agora é acionado pelo 404 ou 500 real, não pela chamada errada
     showToast("Erro ao carregar dados do problema.", "error");
-    showModal('pdv-details');
+    showModal("pdv-details");
   }
 }
-// --- NOVA FUNÇÃO (Fim) ---
-
+// ########### FIM DA ALTERAÇÃO V2.2 ###########
 
 async function renderAddStatusModal() {
   const pdv = await api.get(`/pdvs/${state.selectedPdvId}`);
@@ -887,7 +903,7 @@ async function renderEditStoreModal() {
 
   if (!store) {
     showToast("Loja não encontrada.", "error");
-    showModal(null); 
+    showModal(null);
     return;
   }
 
@@ -897,7 +913,7 @@ async function renderEditStoreModal() {
 }
 function renderPasswordChangeModal() {
   const form = document.getElementById("password-change-form");
-  form.reset(); 
+  form.reset();
 
   document.getElementById("password-change-error").classList.add("hidden");
 
@@ -914,12 +930,12 @@ function renderPasswordChangeModal() {
 
   if (isFirstLogin) {
     modalTitle.textContent = "Definir sua Senha";
-    currentPasswordWrapper.style.display = "none"; 
-    currentPasswordInput.required = false; 
+    currentPasswordWrapper.style.display = "none";
+    currentPasswordInput.required = false;
   } else {
     modalTitle.textContent = "Alterar Senha";
-    currentPasswordWrapper.style.display = "block"; 
-    currentPasswordInput.required = true; 
+    currentPasswordWrapper.style.display = "block";
+    currentPasswordInput.required = true;
   }
 }
 async function renderAdminRolesScreen() {
@@ -976,7 +992,7 @@ async function renderEditRoleModal() {
   document.getElementById("edit-role-id").value = role.id;
 
   const container = document.getElementById("edit-role-permissions");
-  container.innerHTML = ""; 
+  container.innerHTML = "";
 
   const permissionLabels = {
     accessAdminPanel: "Acessar Painel Admin",
@@ -1028,7 +1044,7 @@ async function renderChecklistScreen() {
     (a, b) => a.number.localeCompare(b.number, undefined, { numeric: true })
   );
 
-  state.allData.pdvs = pdvs; 
+  state.allData.pdvs = pdvs;
 
   pdvs.forEach((pdv, index) => {
     const checkData =
@@ -1057,7 +1073,7 @@ async function renderChecklistScreen() {
     }
 
     const card = document.createElement("div");
-    card.dataset.index = index; 
+    card.dataset.index = index;
     card.className = `checklist-pdv-card p-4 rounded-lg shadow-sm cursor-pointer hover:shadow-md transition-shadow flex justify-between items-center ${bgColor} ${textColor}`;
 
     card.innerHTML = `
@@ -1267,7 +1283,7 @@ async function renderViewChecklistModal() {
       "view-checklist-modal-title"
     ).textContent = `Checklist de ${store.name} - ${formattedDate}`;
 
-    contentEl.innerHTML = ""; 
+    contentEl.innerHTML = "";
 
     const allItemsForStore = getChecklistItemsForStore(store.id);
     const allItemsMap = new Map(
@@ -1280,7 +1296,7 @@ async function renderViewChecklistModal() {
 
     pdvsDaLoja.forEach((pdv) => {
       const checkData = checklist.pdvChecks.find((c) => c.pdvId === pdv.id);
-      if (!checkData) return; 
+      if (!checkData) return;
 
       let resultHtml = "";
       let observationHtml = checkData.observation
@@ -1344,7 +1360,7 @@ function getChecklistItemsForStore(storeId) {
 }
 function renderChecklistHelpModal() {
   const listEl = document.getElementById("checklist-help-list");
-  listEl.innerHTML = ""; 
+  listEl.innerHTML = "";
 
   if (state.currentStore) {
     const allItems = getChecklistItemsForStore(state.currentStore.id);
@@ -1377,7 +1393,7 @@ function renderDashboard(pdvsInStore, todaysChecklist) {
   let overviewContent = Object.entries(statusCounts)
     .map(([statusId, count]) => {
       const status = state.allData.statusTypes.find((s) => s.id == statusId);
-      if (!status) return ''; // Adiciona verificação
+      if (!status) return ""; // Adiciona verificação
       return `<div class="flex justify-between items-center text-sm">
                     <span class="flex items-center">
                         <div class="w-3 h-3 rounded-full mr-2 status-bg-${status.id}"></div>${status.name}
@@ -1525,7 +1541,7 @@ function saveAndValidateCurrentChecklistPdv() {
 
   if (selectedStatusId === okStatusId) {
     checkData.result = "ok";
-    checkData.issues = []; 
+    checkData.issues = [];
   } else {
     checkData.result = "problem";
     checkData.issues = Array.from(
@@ -1536,7 +1552,7 @@ function saveAndValidateCurrentChecklistPdv() {
   checkData.newStatusId = selectedStatusId;
   checkData.observation = observation;
 
-  return true; 
+  return true;
 }
 function renderApplyChecklistItemModal() {
   const listEl = document.getElementById("apply-item-stores-list");
@@ -1600,16 +1616,18 @@ function setupAllEventListeners() {
         ]);
         state.allData = { roles, stores, pdvItems, statusTypes };
         applyStatusColors();
-        
+
         // Pós-login, busca usuários para o cache (necessário para 'change-password-link')
-        api.get("/users").then(users => { state.allData.users = users; });
+        api.get("/users").then((users) => {
+          state.allData.users = users;
+        });
 
         state.currentStore = state.loggedInUser.storeId
           ? stores.find((s) => s.id === state.loggedInUser.storeId)
           : stores[0] || null;
-        
+
         if (state.currentStore) {
-            localStorage.setItem("selectedStoreId", state.currentStore.id);
+          localStorage.setItem("selectedStoreId", state.currentStore.id);
         }
 
         e.target.reset();
@@ -1633,14 +1651,14 @@ function setupAllEventListeners() {
   document
     .getElementById("pdv-log-store-filter")
     .addEventListener("change", () => {
-      state.showFullPdvLogs = false; 
+      state.showFullPdvLogs = false;
       renderPdvLogsScreen();
     });
 
   document.getElementById("pdv-logs-list").addEventListener("click", (e) => {
     if (e.target.id === "show-full-pdv-logs-btn") {
-      state.showFullPdvLogs = true; 
-      renderPdvLogsScreen(); 
+      state.showFullPdvLogs = true;
+      renderPdvLogsScreen();
     }
   });
 
@@ -1648,8 +1666,8 @@ function setupAllEventListeners() {
     .getElementById("checklist-pdv-modal")
     .addEventListener("click", async (e) => {
       if (e.target === document.getElementById("checklist-pdv-modal")) {
-        showModal(null); 
-        return; 
+        showModal(null);
+        return;
       }
       if (e.target.closest("#checklist-help-btn")) {
         await showModal("checklist-help");
@@ -1680,8 +1698,8 @@ function setupAllEventListeners() {
         e.target.id === "checklist-save-and-close-btn"
       ) {
         if (saveAndValidateCurrentChecklistPdv()) {
-          await showModal(null); 
-          await renderChecklistScreen(); 
+          await showModal(null);
+          await renderChecklistScreen();
         }
         return;
       }
@@ -1693,7 +1711,7 @@ function setupAllEventListeners() {
         checkData.newStatusId = null;
         await showModal(null);
         await renderChecklistScreen();
-        return; 
+        return;
       }
 
       if (
@@ -1737,7 +1755,7 @@ function setupAllEventListeners() {
   document
     .getElementById("add-pdv-item-form")
     .addEventListener("submit", (e) => {
-      e.preventDefault(); 
+      e.preventDefault();
       const name = document.getElementById("new-pdv-item-name").value.trim();
       if (!name) return;
 
@@ -1747,7 +1765,7 @@ function setupAllEventListeners() {
           await logAction(`Adicionou o item de PDV padrão "${name}".`);
           showToast("Item padrão adicionado!");
           e.target.reset();
-          await showScreen("admin-pdv-items"); 
+          await showScreen("admin-pdv-items");
         } catch (error) {
           // O erro já é exibido pelo helper da API
         }
@@ -1756,7 +1774,7 @@ function setupAllEventListeners() {
       document
         .getElementById("pdv-log-store-filter")
         .addEventListener("change", () => {
-          state.showFullPdvLogs = false; 
+          state.showFullPdvLogs = false;
           renderPdvLogsScreen();
         });
 
@@ -1783,15 +1801,15 @@ function setupAllEventListeners() {
       const username = document.getElementById("username").value;
       if (!username)
         return showToast("Por favor, informe seu usuário primeiro.", "error");
-      
+
       // Garante que temos a lista de usuários
       if (!state.allData.users) {
-          return showToast("Aguarde, carregando dados de usuário...", "info");
+        return showToast("Aguarde, carregando dados de usuário...", "info");
       }
 
       const user = state.allData.users.find((u) => u.username === username);
       if (!user) {
-          return showToast("Usuário não encontrado.", "error");
+        return showToast("Usuário não encontrado.", "error");
       }
 
       state.userForPasswordChange = username;
@@ -1870,11 +1888,14 @@ function setupAllEventListeners() {
     "close-checklist-help-btn",
     "cancel-apply-item-btn",
     "cancel-checklist-config-btn",
-    "cancel-resolve-problem-btn", // <-- BOTÃO ADICIONADO
+    "cancel-resolve-problem-btn",
   ].forEach((id) => {
     document.getElementById(id)?.addEventListener("click", async (e) => {
       let newModal = null;
-      if (e.target.id === "cancel-add-status-btn" || e.target.id === 'cancel-resolve-problem-btn') // <-- LÓGICA ADICIONADA
+      if (
+        e.target.id === "cancel-add-status-btn" ||
+        e.target.id === "cancel-resolve-problem-btn"
+      )
         newModal = "pdv-details";
       else if (
         e.target.id === "cancel-checklist-config-btn" ||
@@ -1960,18 +1981,32 @@ function setupAllEventListeners() {
       await showModal(null);
     });
 
-  // --- LISTENER MODIFICADO (Início) ---
-  // Este listener agora apenas envia os dados. O servidor decide se cria um 'problem'.
-  // O refresh do modal e da tela principal buscará o status atualizado.
   document
     .getElementById("add-status-form")
     .addEventListener("submit", async (e) => {
       e.preventDefault();
       const statusId = parseInt(document.getElementById("status-select").value);
       const description = document.getElementById("status-description").value;
-      const itemId = document.getElementById("status-item-select").value
-        ? parseInt(document.getElementById("status-item-select").value)
-        : null;
+      // Pega o valor como string para verificar se está vazio ('')
+      const itemIdValue = document.getElementById("status-item-select").value;
+
+      // --- INÍCIO DA VALIDAÇÃO ---
+      const okStatus = state.allData.statusTypes.find((s) => s.name === "Ok");
+      if (!okStatus) {
+        // Fallback caso o estado ainda não esteja pronto (improvável)
+        showToast("Erro: Dados de status não carregados.", "error");
+        return;
+      }
+
+      // Se o status NÃO for OK, e o item (componente) for NULO (string vazia, "Nenhum / Outro")
+      if (statusId !== okStatus.id && !itemIdValue) {
+        showToast("Por favor, selecione o componente com problema.", "error");
+        return; // Para a submissão
+      }
+      // --- FIM DA VALIDAÇÃO ---
+
+      const itemId = itemIdValue ? parseInt(itemIdValue) : null;
+
       try {
         // A API /api/pdvs/:id/status-history agora é autenticada
         await api.post(`/pdvs/${state.selectedPdvId}/status-history`, {
@@ -1980,49 +2015,47 @@ function setupAllEventListeners() {
           itemId,
           // techId é pego automaticamente pelo servidor via token
         });
-        
+
         // Atualiza o modal de detalhes (para mostrar a nova pendência/histórico)
-        await showModal("pdv-details"); 
+        await showModal("pdv-details");
         // Atualiza a tela principal (para mostrar o novo status geral do PDV)
-        await renderPdvScreen(); 
+        await renderPdvScreen();
         showToast("Status salvo com sucesso!");
       } catch (error) {
         showToast("Falha ao salvar status.", "error");
       }
     });
-  // --- LISTENER MODIFICADO (Fim) ---
-  
-  // --- NOVO LISTENER (Início) ---
-  // Listener para o formulário de resolver pendência
-  document.getElementById("resolve-problem-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const problemId = state.selectedProblemId;
-    const solutionNotes = document.getElementById("resolve-problem-notes").value;
-    const errorEl = document.getElementById("resolve-problem-error");
 
-    errorEl.classList.add('hidden');
+  document
+    .getElementById("resolve-problem-form")
+    .addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const problemId = state.selectedProblemId;
+      const solutionNotes = document.getElementById(
+        "resolve-problem-notes"
+      ).value;
+      const errorEl = document.getElementById("resolve-problem-error");
 
-    if (solutionNotes.length < 10) {
-      errorEl.textContent = "A solução deve ter pelo menos 10 caracteres.";
-      errorEl.classList.remove('hidden');
-      return;
-    }
+      errorEl.classList.add("hidden");
 
-    try {
-      await api.put(`/api/problems/${problemId}/resolve`, { solutionNotes });
-      showToast("Pendência resolvida com sucesso!");
-      
-      // Recarrega o modal de detalhes e a tela principal
-      await showModal('pdv-details');
-      await renderPdvScreen();
+      if (solutionNotes.length < 10) {
+        errorEl.textContent = "A solução deve ter pelo menos 10 caracteres.";
+        errorEl.classList.remove("hidden");
+        return;
+      }
 
-    } catch (error) {
-      errorEl.textContent = error.message;
-      errorEl.classList.remove('hidden');
-    }
-  });
-  // --- NOVO LISTENER (Fim) ---
+      try {
+        await api.put(`/problems/${problemId}/resolve`, { solutionNotes });
+        showToast("Pendência resolvida com sucesso!");
 
+        // Recarrega o modal de detalhes e a tela principal
+        await showModal("pdv-details");
+        await renderPdvScreen();
+      } catch (error) {
+        errorEl.textContent = error.message;
+        errorEl.classList.remove("hidden");
+      }
+    });
 
   document.getElementById("add-store-form").addEventListener("submit", (e) => {
     e.preventDefault();
@@ -2185,138 +2218,156 @@ function setupAllEventListeners() {
     );
   });
 
-  // --- EVENTOS DELEGAÇÃO ---
-document.getElementById('app-container').addEventListener('click', async (e) => {
+  document.body.addEventListener("click", async (e) => {
     const { target } = e;
 
-    // --- NOVO LISTENER DE CLIQUE (Início) ---
-    // Detecta clique em um item de problema pendente
-    const problemItem = target.closest('.problem-item');
+    const problemItem = target.closest(".problem-item");
     if (problemItem) {
-        const problemId = parseInt(problemItem.dataset.problemid);
-        if (problemId) {
-            state.selectedProblemId = problemId;
-            await showModal('resolve-problem');
-        }
-        return; // Para a execução para não ser pego por outros listeners
+      const problemId = parseInt(problemItem.dataset.problemid);
+      if (problemId) {
+        state.selectedProblemId = problemId;
+        await showModal("resolve-problem");
+      }
+      return;
     }
-    // --- NOVO LISTENER DE CLIQUE (Fim) ---
 
+    const el = target.closest(
+      "[data-userid], [data-storeid], [data-pdvid], [data-statusid], [data-roleid], [data-itemid], [data-checklistid]"
+    );
 
-    const el = target.closest('[data-userid], [data-storeid], [data-pdvid], [data-statusid], [data-roleid], [data-itemid], [data-checklistid]');
-
-    if (target.matches('.view-checklist-log-btn, .view-checklist-history-btn')) {
-        const checklistId = parseInt(target.dataset.checklistid);
-        if (checklistId) {
-            state.selectedChecklistId = checklistId;
-            await showModal('view-checklist');
-        }
-        return;
+    if (
+      target.matches(".view-checklist-log-btn, .view-checklist-history-btn")
+    ) {
+      const checklistId = parseInt(target.dataset.checklistid);
+      if (checklistId) {
+        state.selectedChecklistId = checklistId;
+        await showModal("view-checklist");
+      }
+      return;
     }
 
     if (!el) return;
     const { userid, storeid, pdvid, statusid, roleid, itemid } = el.dataset;
 
     // Ações de Usuários
-    if (target.matches('.remove-user-btn')) {
-        const userId = parseInt(userid);
-        const user = state.allData.users.find(u => u.id === userId);
-        if (!user) return;
-        
-        if (user.username === 'admin') return showToast('O usuário "admin" não pode ser removido.', 'error');
-        if (user.id === state.loggedInUser.id) return showToast('Você não pode remover a si mesmo.', 'error');
-        
-        const action = async () => {
-            await api.delete(`/users/${userId}`);
-            await logAction(`Removeu o usuário "${user.name}".`);
-            await showScreen('admin-users-list');
-            showToast('Usuário removido!');
-        };
-        showConfirmationModal('Remover Usuário', `Remover "${user.name}"? Esta ação não pode ser desfeita.`, action);
+    if (target.matches(".remove-user-btn")) {
+      const userId = parseInt(userid);
+      const user = state.allData.users.find((u) => u.id === userId);
+      if (!user) return;
 
-    } else if (target.matches('.edit-user-btn')) {
-        state.selectedUserId = parseInt(userid);
-        await showModal('edit-user');
+      if (user.username === "admin")
+        return showToast('O usuário "admin" não pode ser removido.', "error");
+      if (user.id === state.loggedInUser.id)
+        return showToast("Você não pode remover a si mesmo.", "error");
+
+      const action = async () => {
+        await api.delete(`/users/${userId}`);
+        await logAction(`Removeu o usuário "${user.name}".`);
+        await showScreen("admin-users-list");
+        showToast("Usuário removido!");
+      };
+      showConfirmationModal(
+        "Remover Usuário",
+        `Remover "${user.name}"? Esta ação não pode ser desfeita.`,
+        action
+      );
+    } else if (target.matches(".edit-user-btn")) {
+      state.selectedUserId = parseInt(userid);
+      await showModal("edit-user");
     }
-    
+
     // Ações de Lojas
-    else if (target.matches('.remove-store-btn')) {
-        const storeId = parseInt(storeid);
-        const store = state.allData.stores.find(s => s.id === storeId);
-        const action = async () => {
-            await api.delete(`/stores/${storeId}`);
-            await logAction(`Removeu a loja "${store.name}".`);
-            await showScreen('admin-stores');
-            showToast('Loja removida!');
-        };
-        showConfirmationModal('Remover Loja', `Remover "${store.name}" e todos os seus PDVs?`, action);
-    } else if (target.matches('.edit-store-btn')) {
-        state.selectedStoreId = parseInt(storeid);
-        await showModal('edit-store');
-    } else if (target.matches('.manage-store-btn'))
-         {
-        state.selectedStoreId = parseInt(storeid);
-        await showModal('manage-store');
-        
-    } else if (target.id === 'goto-checklist-config-btn') {
-        e.preventDefault();
-        await showModal('checklist-config');
-    } 
-    
-    // Ações de PDVs
-    else if (target.matches('.remove-pdv-btn')) {
-        const pdvId = parseInt(pdvid);
-        const action = async () => {
-            await api.delete(`/pdvs/${pdvId}`);
-            await logAction(`Removeu um PDV.`);
-            await renderManageStoreModal(); 
-            showToast('PDV removido!');
-        };
-        showConfirmationModal('Remover PDV', `Remover este PDV?`, action);
+    else if (target.matches(".remove-store-btn")) {
+      const storeId = parseInt(storeid);
+      const store = state.allData.stores.find((s) => s.id === storeId);
+      const action = async () => {
+        await api.delete(`/stores/${storeId}`);
+        await logAction(`Removeu a loja "${store.name}".`);
+        await showScreen("admin-stores");
+        showToast("Loja removida!");
+      };
+      showConfirmationModal(
+        "Remover Loja",
+        `Remover "${store.name}" e todos os seus PDVs?`,
+        action
+      );
+    } else if (target.matches(".edit-store-btn")) {
+      state.selectedStoreId = parseInt(storeid);
+      await showModal("edit-store");
+    } else if (target.matches(".manage-store-btn")) {
+      state.selectedStoreId = parseInt(storeid);
+      await showModal("manage-store");
+    } else if (target.id === "goto-checklist-config-btn") {
+      e.preventDefault();
+      await showModal("checklist-config");
     }
-    
+
+    // Ações de PDVs
+    else if (target.matches(".remove-pdv-btn")) {
+      const pdvId = parseInt(pdvid);
+      const action = async () => {
+        await api.delete(`/pdvs/${pdvId}`);
+        await logAction(`Removeu um PDV.`);
+        await renderManageStoreModal();
+        showToast("PDV removido!");
+      };
+      showConfirmationModal("Remover PDV", `Remover este PDV?`, action);
+    }
+
     // Ações de Status
-    else if (target.matches('.remove-status-btn')) {
-        const statusId = parseInt(statusid);
-        const status = state.allData.statusTypes.find(s => s.id === statusId);
-        const action = async () => {
-            await api.delete(`/status-types/${statusId}`); // <-- ESTA ROTA PRECISA EXISTIR NO SERVER.JS (Não estava no plano, mas é necessária)
-            await logAction(`Removeu o status "${status.name}".`);
-            await showScreen('admin-status');
-            showToast('Status removido!');
-        };
-        showConfirmationModal('Remover Status', `Remover o status "${status.name}"?`, action);
+    else if (target.matches(".remove-status-btn")) {
+      const statusId = parseInt(statusid);
+      const status = state.allData.statusTypes.find((s) => s.id === statusId);
+      const action = async () => {
+        await api.delete(`/status-types/${statusId}`); // <-- ESTA ROTA PRECISA EXISTIR NO SERVER.JS (Não estava no plano, mas é necessária)
+        await logAction(`Removeu o status "${status.name}".`);
+        await showScreen("admin-status");
+        showToast("Status removido!");
+      };
+      showConfirmationModal(
+        "Remover Status",
+        `Remover o status "${status.name}"?`,
+        action
+      );
     }
 
     // Ações de Cargos (Roles)
-    else if (target.matches('.edit-role-btn')) {
-        state.selectedRoleId = parseInt(roleid);
-        await showModal('edit-role');
-    } else if (target.matches('.remove-role-btn')) {
-        const roleId = parseInt(roleid);
-        const role = state.allData.roles.find(r => r.id === roleId);
-        const action = async () => {
-            await api.delete(`/roles/${roleId}`); // <-- ESTA ROTA PRECISA EXISTIR NO SERVER.JS (Não estava no plano, mas é necessária)
-            await logAction(`Removeu o cargo "${role.name}".`);
-            await showScreen('admin-roles');
-            showToast('Cargo removido!');
-        };
-        showConfirmationModal('Remover Cargo', `Remover o cargo "${role.name}"?`, action);
+    else if (target.matches(".edit-role-btn")) {
+      state.selectedRoleId = parseInt(roleid);
+      await showModal("edit-role");
+    } else if (target.matches(".remove-role-btn")) {
+      const roleId = parseInt(roleid);
+      const role = state.allData.roles.find((r) => r.id === roleId);
+      const action = async () => {
+        await api.delete(`/roles/${roleId}`); // <-- ESTA ROTA PRECISA EXISTIR NO SERVER.JS (Não estava no plano, mas é necessária)
+        await logAction(`Removeu o cargo "${role.name}".`);
+        await showScreen("admin-roles");
+        showToast("Cargo removido!");
+      };
+      showConfirmationModal(
+        "Remover Cargo",
+        `Remover o cargo "${role.name}"?`,
+        action
+      );
     }
 
     // Ações de Itens de PDV
-    else if (target.matches('.remove-pdv-item-btn')) {
-        const itemId = parseInt(itemid);
-        const item = state.allData.pdvItems.find(i => i.id === itemId);
-        const action = async () => {
-            await api.delete(`/pdv-items/${itemId}`);
-            await logAction(`Removeu o item de PDV "${item.name}".`);
-            await showScreen('admin-pdv-items');
-            showToast('Item removido!');
-        };
-        showConfirmationModal('Remover Item', `Remover o item padrão "${item.name}"?`, action);
+    else if (target.matches(".remove-pdv-item-btn")) {
+      const itemId = parseInt(itemid);
+      const item = state.allData.pdvItems.find((i) => i.id === itemId);
+      const action = async () => {
+        await api.delete(`/pdv-items/${itemId}`);
+        await logAction(`Removeu o item de PDV "${item.name}".`);
+        await showScreen("admin-pdv-items");
+        showToast("Item removido!");
+      };
+      showConfirmationModal(
+        "Remover Item",
+        `Remover o item padrão "${item.name}"?`,
+        action
+      );
     }
-});
+  });
 
   // --- CHECKLIST LISTENERS ---
   document.getElementById("pdv-screen").addEventListener("click", async (e) => {
@@ -2398,7 +2449,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }, 1250);
 
-  setupAllEventListeners(); 
+  setupAllEventListeners();
 
   const token = localStorage.getItem("authToken");
   if (token) {
@@ -2411,7 +2462,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         api.get("/stores"),
         api.get("/pdv-items"),
         api.get("/status-types"),
-        api.get("/users"), 
+        api.get("/users"),
       ]);
       state.allData = { roles, stores, pdvItems, statusTypes, users };
       applyStatusColors();
@@ -2434,7 +2485,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       await showScreen("pdv");
     } catch (error) {
       localStorage.removeItem("authToken");
-      window.location.reload(); 
+      window.location.reload();
     }
   } else {
     try {
@@ -2444,7 +2495,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         api.get("/stores"),
         api.get("/pdv-items"),
         api.get("/status-types"),
-        api.get("/users"), 
+        api.get("/users"),
       ]);
       state.allData = { roles, stores, pdvItems, statusTypes, users };
       applyStatusColors();
@@ -2455,16 +2506,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 });
 
-
 // Adicionar ao final do app.js APP EXTERNO
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js')
-            .then(registration => {
-                console.log('Service Worker registrado com sucesso:', registration);
-            })
-            .catch(error => {
-                console.log('Falha ao registrar o Service Worker:', error);
-            });
-    });
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/service-worker.js")
+      .then((registration) => {
+        console.log("Service Worker registrado com sucesso:", registration);
+      })
+      .catch((error) => {
+        console.log("Falha ao registrar o Service Worker:", error);
+      });
+  });
 }

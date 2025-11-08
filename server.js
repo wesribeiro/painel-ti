@@ -1,5 +1,6 @@
 // painel-ti-servidor/server.js
-// VERSÃO ATUALIZADA COM LÓGICA DE 'PROBLEMS' (PENDÊNCIAS)
+// VERSÃO ATUALIZADA (V2.2)
+// - Corrigido nome da coluna 'solutionNotes' para 'resolution_notes' no endpoint de resolve.
 
 const express = require("express");
 const path = require("path");
@@ -25,7 +26,7 @@ app.use(express.static(path.join(__dirname, "public")));
 // #                          ROTAS DA API                              #
 // ######################################################################
 
-// --- ROTAS DE AUTENTICAÇÃO E SESSÃO (Sem alterações) ---
+// --- ROTAS DE AUTENTICAÇÃO E SESSÃO ---
 
 app.get("/api/auth/session", (req, res) => {
   res.status(401).json({ message: "Nenhuma sessão ativa." });
@@ -44,12 +45,10 @@ app.post("/api/auth/login", async (req, res) => {
     }
 
     if (user.password === null) {
-      return res
-        .status(403)
-        .json({
-          message: "Primeiro acesso. Defina uma senha.",
-          firstLogin: true,
-        });
+      return res.status(403).json({
+        message: "Primeiro acesso. Defina uma senha.",
+        firstLogin: true,
+      });
     }
 
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
@@ -81,7 +80,7 @@ app.post("/api/auth/login", async (req, res) => {
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1]; 
+  const token = authHeader && authHeader.split(" ")[1];
 
   if (token == null) {
     return res.status(401).json({ message: "Token não fornecido." });
@@ -92,7 +91,7 @@ const authenticateToken = (req, res, next) => {
       return res.status(403).json({ message: "Token inválido ou expirado." });
     }
     req.user = user;
-    next(); 
+    next();
   });
 };
 
@@ -139,7 +138,7 @@ app.post("/api/auth/logout", (req, res) =>
   res.status(200).json({ message: "Logout realizado." })
 );
 
-// --- ROTAS GENÉRICAS DE LEITURA (GET) (Sem alterações) ---
+// --- ROTAS GENÉRICAS DE LEITURA (GET) ---
 const createGetRoute =
   (tableName, jsonFields = []) =>
   async (req, res) => {
@@ -180,7 +179,7 @@ app.get("/api/users", async (req, res) => {
   }
 });
 
-// --- ROTAS DE USUÁRIOS (CRUD COMPLETO) (Sem alterações) ---
+// --- ROTAS DE USUÁRIOS (CRUD COMPLETO) ---
 app.post("/api/users", async (req, res) => {
   const { name, username, roleId, storeId } = req.body;
   try {
@@ -225,7 +224,6 @@ app.delete("/api/users/:id", async (req, res) => {
       .json({ message: "Erro ao deletar usuário", error: e.message });
   }
 });
-
 
 // --- ROTAS DE LOJAS E PDVS ---
 app.post("/api/stores", async (req, res) => {
@@ -274,8 +272,6 @@ app.delete("/api/stores/:id", async (req, res) => {
   }
 });
 
-// --- ROTA MODIFICADA (Início) ---
-// Esta rota agora calcula o status com base em problemas abertos.
 app.get("/api/stores/:id/pdvs-with-status", async (req, res) => {
   try {
     const db = await dbPromise;
@@ -285,12 +281,16 @@ app.get("/api/stores/:id/pdvs-with-status", async (req, res) => {
     );
 
     // Precisamos do ID do status "Ok" para a lógica
-    const okStatus = await db.get("SELECT id FROM statusTypes WHERE name = 'Ok'");
-    if (!okStatus) throw new Error("Status 'Ok' não encontrado no banco de dados.");
+    const okStatus = await db.get(
+      "SELECT id FROM statusTypes WHERE name = 'Ok'"
+    );
+    if (!okStatus)
+      throw new Error("Status 'Ok' não encontrado no banco de dados.");
 
     for (const pdv of pdvs) {
       // 1. Verificar se existe algum problema aberto para este PDV
-      const openProblem = await db.get(`
+      const openProblem = await db.get(
+        `
         SELECT p.title, p.created_at, p.originStatusId, u.name as techName, st.name as statusName, st.color as statusColor
         FROM problems p
         LEFT JOIN users u ON p.reported_by_user_id = u.id
@@ -298,7 +298,9 @@ app.get("/api/stores/:id/pdvs-with-status", async (req, res) => {
         WHERE p.pdv_id = ? AND p.status != 'Resolvido'
         ORDER BY p.created_at DESC
         LIMIT 1
-      `, [pdv.id]);
+      `,
+        [pdv.id]
+      );
 
       if (openProblem) {
         // 2. Se existir um problema, o status do PDV é o status desse problema
@@ -329,7 +331,6 @@ app.get("/api/stores/:id/pdvs-with-status", async (req, res) => {
       .json({ message: "Erro ao buscar PDVs com status.", error: err.message });
   }
 });
-// --- ROTA MODIFICADA (Fim) ---
 
 app.post("/api/stores/:id/pdvs", async (req, res) => {
   const { number } = req.body;
@@ -354,77 +355,78 @@ app.delete("/api/pdvs/:id", async (req, res) => {
   }
 });
 
-// --- ROTA MODIFICADA (Início) ---
-// Esta rota agora também cria um 'problem' se o status não for 'Ok'
-app.post("/api/pdvs/:id/status-history", authenticateToken, async (req, res) => {
-  const pdvId = req.params.id;
-  const { statusId, description, itemId } = req.body;
-  const techId = req.user.id; // Pega o ID do usuário logado a partir do token
+app.post(
+  "/api/pdvs/:id/status-history",
+  authenticateToken,
+  async (req, res) => {
+    const pdvId = req.params.id;
+    const { statusId, description, itemId } = req.body;
+    const techId = req.user.id; // Pega o ID do usuário logado a partir do token
 
-  if (!statusId || !description) {
-    return res
-      .status(400)
-      .json({ message: "Status e descrição são obrigatórios." });
-  }
+    if (!statusId || !description) {
+      return res
+        .status(400)
+        .json({ message: "Status e descrição são obrigatórios." });
+    }
 
-  try {
-    const db = await dbPromise;
-    await db.run("BEGIN TRANSACTION");
+    try {
+      const db = await dbPromise;
+      await db.run("BEGIN TRANSACTION");
 
-    // 1. Insere no histórico (como sempre fez)
-    const result = await db.run(
-      "INSERT INTO statusHistory (pdvId, statusId, description, techId, itemId, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
-      [
-        pdvId,
-        statusId,
-        description,
-        techId,
-        itemId || null,
-        new Date().toISOString(),
-      ]
-    );
-
-    // 2. Verifica se o status é 'Ok'
-    const okStatus = await db.get("SELECT id FROM statusTypes WHERE name = 'Ok'");
-    if (!okStatus) throw new Error("Status 'Ok' não encontrado.");
-
-    // 3. Se o status NÃO for 'Ok', cria um novo problema
-    if (statusId !== okStatus.id) {
-      await db.run(
-        `INSERT INTO problems 
-         (pdv_id, item_id, reported_by_user_id, title, description, status, created_at, originStatusId) 
-         VALUES (?, ?, ?, ?, ?, 'Aberto', ?, ?)`,
+      // 1. Insere no histórico (como sempre fez)
+      const result = await db.run(
+        "INSERT INTO statusHistory (pdvId, statusId, description, techId, itemId, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
         [
           pdvId,
-          itemId || null,
-          techId,
-          description.substring(0, 100), // Usa a descrição como título
+          statusId,
           description,
+          techId,
+          itemId || null,
           new Date().toISOString(),
-          statusId
         ]
       );
-    }
-    
-    await db.run("COMMIT");
 
-    const newEntry = await db.get("SELECT * FROM statusHistory WHERE id = ?", [
-      result.lastID,
-    ]);
-    res.status(201).json(newEntry);
+      // 2. Verifica se o status é 'Ok'
+      const okStatus = await db.get(
+        "SELECT id FROM statusTypes WHERE name = 'Ok'"
+      );
+      if (!okStatus) throw new Error("Status 'Ok' não encontrado.");
 
-  } catch (error) {
-    const db = await dbPromise;
-    await db.run("ROLLBACK").catch(() => {});
-    res
-      .status(500)
-      .json({
+      // 3. Se o status NÃO for 'Ok', cria um novo problema
+      if (statusId !== okStatus.id) {
+        await db.run(
+          `INSERT INTO problems 
+         (pdv_id, item_id, reported_by_user_id, title, description, status, created_at, originStatusId) 
+         VALUES (?, ?, ?, ?, ?, 'Aberto', ?, ?)`,
+          [
+            pdvId,
+            itemId || null,
+            techId,
+            description.substring(0, 100), // Usa a descrição como título
+            description,
+            new Date().toISOString(),
+            statusId,
+          ]
+        );
+      }
+
+      await db.run("COMMIT");
+
+      const newEntry = await db.get(
+        "SELECT * FROM statusHistory WHERE id = ?",
+        [result.lastID]
+      );
+      res.status(201).json(newEntry);
+    } catch (error) {
+      const db = await dbPromise;
+      await db.run("ROLLBACK").catch(() => {});
+      res.status(500).json({
         message: "Erro ao salvar novo status.",
         error: error.message,
       });
+    }
   }
-});
-// --- ROTA MODIFICADA (Fim) ---
+);
 
 app.post("/api/pdv-items", async (req, res) => {
   const { name } = req.body;
@@ -524,45 +526,52 @@ app.get("/api/pdvs/:id/recurring-problems", async (req, res) => {
     );
     res.json(problems);
   } catch (err) {
-    res
-      .status(500)
-      .json({
-        message: "Erro ao buscar problemas recorrentes",
-        error: err.message,
-      });
+    res.status(500).json({
+      message: "Erro ao buscar problemas recorrentes",
+      error: err.message,
+    });
   }
 });
 
 // --- NOVAS ROTAS DE PROBLEMAS (Início) ---
+
 app.get("/api/pdvs/:id/problems", authenticateToken, async (req, res) => {
   try {
     const db = await dbPromise;
     // Busca os 5 problemas mais recentes (abertos ou resolvidos)
-    const problems = await db.all(`
+    const problems = await db.all(
+      `
       SELECT 
         p.id, p.status, p.title, p.created_at, p.resolved_at,
         u_reported.name as reportedByTechName, 
         u_resolved.name as resolvedByTechName, 
         st.name as statusName, 
-        st.color as statusColor
+        st.color as statusColor,
+        pi.name as itemName
       FROM problems p
       LEFT JOIN users u_reported ON p.reported_by_user_id = u_reported.id
       LEFT JOIN users u_resolved ON p.resolved_by_user_id = u_resolved.id
       LEFT JOIN statusTypes st ON p.originStatusId = st.id
+      LEFT JOIN pdvItems pi ON p.item_id = pi.id
       WHERE p.pdv_id = ?
       ORDER BY p.created_at DESC
       LIMIT 5
-    `, [req.params.id]);
+    `,
+      [req.params.id]
+    );
     res.json(problems);
   } catch (e) {
-    res.status(500).json({ message: 'Erro ao buscar problemas do PDV.', error: e.message });
+    res
+      .status(500)
+      .json({ message: "Erro ao buscar problemas do PDV.", error: e.message });
   }
 });
 
 app.get("/api/problems/:id", authenticateToken, async (req, res) => {
   try {
     const db = await dbPromise;
-    const problem = await db.get(`
+    const problem = await db.get(
+      `
       SELECT 
         p.id, p.title, p.description, p.created_at, p.status,
         u_reported.name as reportedByTechName, 
@@ -571,24 +580,31 @@ app.get("/api/problems/:id", authenticateToken, async (req, res) => {
       LEFT JOIN users u_reported ON p.reported_by_user_id = u_reported.id
       LEFT JOIN pdvItems pi ON p.item_id = pi.id
       WHERE p.id = ?
-    `, [req.params.id]);
-    
+    `,
+      [req.params.id]
+    );
+
     if (problem) {
       res.json(problem);
     } else {
-      res.status(404).json({ message: 'Problema não encontrado.' });
+      res.status(404).json({ message: "Problema não encontrado." });
     }
   } catch (e) {
-    res.status(500).json({ message: 'Erro ao buscar dados do problema.', error: e.message });
+    res
+      .status(500)
+      .json({ message: "Erro ao buscar dados do problema.", error: e.message });
   }
 });
 
+// ########### ALTERAÇÃO V2.2 AQUI ###########
 app.put("/api/problems/:id/resolve", authenticateToken, async (req, res) => {
   const { solutionNotes } = req.body;
   const techId = req.user.id; // Pega o ID do usuário do token
 
   if (!solutionNotes || solutionNotes.length < 10) {
-    return res.status(400).json({ message: 'A solução deve ter pelo menos 10 caracteres.' });
+    return res
+      .status(400)
+      .json({ message: "A solução deve ter pelo menos 10 caracteres." });
   }
 
   try {
@@ -596,18 +612,22 @@ app.put("/api/problems/:id/resolve", authenticateToken, async (req, res) => {
     await db.run("BEGIN TRANSACTION");
 
     // 1. Atualiza o problema para "Resolvido"
+    // CORREÇÃO: 'solutionNotes' alterado para 'resolution_notes'
     const result = await db.run(
-      "UPDATE problems SET status = 'Resolvido', solutionNotes = ?, resolved_at = ?, resolved_by_user_id = ? WHERE id = ?",
+      "UPDATE problems SET status = 'Resolvido', resolution_notes = ?, resolved_at = ?, resolved_by_user_id = ? WHERE id = ?",
       [solutionNotes, new Date().toISOString(), techId, req.params.id]
     );
+    // ########### FIM DA ALTERAÇÃO V2.2 ###########
 
     if (result.changes === 0) {
       throw new Error("Problema não encontrado para resolver.");
     }
 
     // 2. Pega os dados do problema que acabamos de fechar
-    const problem = await db.get("SELECT * FROM problems WHERE id = ?", [req.params.id]);
-    
+    const problem = await db.get("SELECT * FROM problems WHERE id = ?", [
+      req.params.id,
+    ]);
+
     // 3. Verifica se ainda existem *outros* problemas abertos para este PDV
     const otherOpenProblems = await db.get(
       "SELECT COUNT(id) as count FROM problems WHERE pdv_id = ? AND status != 'Resolvido'",
@@ -616,26 +636,34 @@ app.put("/api/problems/:id/resolve", authenticateToken, async (req, res) => {
 
     // 4. Se não houver outros problemas, adiciona um log "Ok" no histórico
     if (otherOpenProblems.count === 0) {
-      const okStatus = await db.get("SELECT id FROM statusTypes WHERE name = 'Ok'");
+      const okStatus = await db.get(
+        "SELECT id FROM statusTypes WHERE name = 'Ok'"
+      );
       if (!okStatus) throw new Error("Status 'Ok' não encontrado.");
 
       await db.run(
-        'INSERT INTO statusHistory (pdvId, statusId, description, techId, timestamp) VALUES (?, ?, ?, ?, ?)',
-        [problem.pdv_id, okStatus.id, `[SOLUÇÃO] ${solutionNotes}`, techId, new Date().toISOString()]
+        "INSERT INTO statusHistory (pdvId, statusId, description, techId, timestamp) VALUES (?, ?, ?, ?, ?)",
+        [
+          problem.pdv_id,
+          okStatus.id,
+          `[SOLUÇÃO] ${solutionNotes}`,
+          techId,
+          new Date().toISOString(),
+        ]
       );
     }
-    
-    await db.run("COMMIT");
-    res.status(200).json({ message: 'Problema resolvido com sucesso.' });
 
+    await db.run("COMMIT");
+    res.status(200).json({ message: "Problema resolvido com sucesso." });
   } catch (e) {
     const db = await dbPromise;
     await db.run("ROLLBACK").catch(() => {});
-    res.status(500).json({ message: 'Erro ao resolver o problema.', error: e.message });
+    res
+      .status(500)
+      .json({ message: "Erro ao resolver o problema.", error: e.message });
   }
 });
 // --- NOVAS ROTAS DE PROBLEMAS (Fim) ---
-
 
 // --- ROTAS DE CHECKLIST ---
 app.get("/api/checklists/today", async (req, res) => {
@@ -663,8 +691,6 @@ app.get("/api/checklists/today", async (req, res) => {
   }
 });
 
-// --- ROTA MODIFICADA (Início) ---
-// Esta rota agora cria 'problems' ao ser finalizada
 app.post("/api/checklists", authenticateToken, async (req, res) => {
   const { id, storeId, date, status, pdvChecks, finalizedByUserId } = req.body;
   const userFromToken = req.user;
@@ -689,13 +715,17 @@ app.post("/api/checklists", authenticateToken, async (req, res) => {
 
     // Se o checklist está sendo finalizado, processa os status e problemas
     if (status === "completed" && pdvChecks) {
-      console.log("Finalizando checklist. Atualizando histórico e problemas...");
-      
-      const okStatus = await db.get("SELECT id FROM statusTypes WHERE name = 'Ok'");
+      console.log(
+        "Finalizando checklist. Atualizando histórico e problemas..."
+      );
+
+      const okStatus = await db.get(
+        "SELECT id FROM statusTypes WHERE name = 'Ok'"
+      );
       if (!okStatus) throw new Error("Status 'Ok' não encontrado.");
 
       await db.run("BEGIN TRANSACTION");
-      
+
       const historyStmt = await db.prepare(
         "INSERT INTO statusHistory (pdvId, statusId, description, techId, timestamp) VALUES (?, ?, ?, ?, ?)"
       );
@@ -710,7 +740,7 @@ app.post("/api/checklists", authenticateToken, async (req, res) => {
             check.observation ||
             (check.result === "ok" ? "Tudo OK." : "Problema reportado.")
           }`;
-          
+
           // 1. Adiciona ao histórico de status (sempre)
           await historyStmt.run(
             check.pdvId,
@@ -723,11 +753,12 @@ app.post("/api/checklists", authenticateToken, async (req, res) => {
           // 2. Se o status não for 'Ok', cria um problema
           if (check.newStatusId !== okStatus.id) {
             const problemTitle = description.substring(0, 100);
-            
+
             // Tenta extrair o item_id do checklist (se houver)
-            const itemId = check.issues && check.issues.length > 0 
-              ? parseInt(check.issues[0].replace('std-', '')) 
-              : null;
+            const itemId =
+              check.issues && check.issues.length > 0
+                ? parseInt(check.issues[0].replace("std-", ""))
+                : null;
 
             await problemStmt.run(
               check.pdvId,
@@ -760,8 +791,6 @@ app.post("/api/checklists", authenticateToken, async (req, res) => {
       .json({ message: "Erro ao salvar checklist", error: e.message });
   }
 });
-// --- ROTA MODIFICADA (Fim) ---
-
 
 app.get("/api/stores/:id/pdvs", async (req, res) => {
   try {
@@ -777,7 +806,7 @@ app.get("/api/stores/:id/pdvs", async (req, res) => {
   }
 });
 app.get("/api/checklists/history", async (req, res) => {
-  const { storeId } = req.query; 
+  const { storeId } = req.query;
 
   try {
     const db = await dbPromise;
@@ -801,12 +830,10 @@ app.get("/api/checklists/history", async (req, res) => {
 
     res.json(checklists);
   } catch (e) {
-    res
-      .status(500)
-      .json({
-        message: "Erro ao buscar histórico de checklists.",
-        error: e.message,
-      });
+    res.status(500).json({
+      message: "Erro ao buscar histórico de checklists.",
+      error: e.message,
+    });
   }
 });
 
@@ -828,16 +855,14 @@ app.get("/api/checklists/:id", async (req, res) => {
       res.status(404).json({ message: "Checklist não encontrado." });
     }
   } catch (e) {
-    res
-      .status(500)
-      .json({
-        message: "Erro ao buscar detalhes do checklist.",
-        error: e.message,
-      });
+    res.status(500).json({
+      message: "Erro ao buscar detalhes do checklist.",
+      error: e.message,
+    });
   }
 });
 
-// --- ROTAS DE LOGS (Sem alterações) ---
+// --- ROTAS DE LOGS ---
 app.post("/api/logs/admin", async (req, res) => {
   const { description, metadata, userId, userName } = req.body;
   try {
