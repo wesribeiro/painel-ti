@@ -1,0 +1,17 @@
+# Dependências de Node
+/node_modules
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Variáveis de ambiente
+.env
+.env.local
+.env.*.local
+
+# Database files (seu arquivo local)
+*.sqlite
+painel-ti.sqlite
