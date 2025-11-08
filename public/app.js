@@ -1,4 +1,4 @@
-// painel-ti-servidor/public/app.js - VERSÃO COMPLETA E DEFINITIVA COM JWT
+// painel-ti-servidor/public/app.js - VERSÃO COM LÓGICA DE 'PROBLEMS' (PENDÊNCIAS)
 
 // --- OBJETO AUXILIAR PARA CHAMADAS DE API (ATUALIZADO PARA JWT) ---
 const api = {
@@ -16,33 +16,23 @@ const api = {
     try {
       const response = await fetch(`/api${endpoint}`, options);
 
-      // --- MUDANÇA PRINCIPAL AQUI ---
-      // Se a resposta não for 'OK', verificamos o status.
       if (!response.ok) {
-        // Se for um erro 404 (Não Encontrado), nós o tratamos como uma falha silenciosa.
-        // Em vez de gerar um erro, simplesmente lançamos uma exceção que será capturada
-        // pelo `.catch(() => null)` na chamada da função, sem mostrar nada.
         if (response.status === 404) {
           const errorData = await response.json();
           throw new Error(errorData.message || "Recurso não encontrado.");
         }
 
-        // Para QUALQUER OUTRO tipo de erro (500, 403, etc.), mostramos o erro.
         const errorData = await response.json();
         console.error(`API Error (${method} ${endpoint}):`, errorData);
         showToast(errorData.message || "Ocorreu um erro no servidor.", "error");
         throw new Error(errorData.message);
       }
 
-      // Se a resposta for bem-sucedida
       if (response.status === 204) {
         return null;
-      } // Resposta de sucesso sem conteúdo (ex: DELETE)
+      } 
       return await response.json();
     } catch (error) {
-      // Este bloco 'catch' agora só será acionado por falhas de rede (servidor offline)
-      // ou pelos erros que lançamos intencionalmente acima.
-
       // Relança o erro para que a lógica da aplicação (como o .catch(()=>null)) possa funcionar.
       throw error;
     }
@@ -64,6 +54,7 @@ let state = {
   selectedStoreId: null,
   selectedUserId: null,
   selectedRoleId: null,
+  selectedProblemId: null, // <-- NOVO ESTADO
   userForPasswordChange: null,
   isFirstLoginForPasswordChange: false,
   actionToConfirm: null,
@@ -136,13 +127,12 @@ function getTodayDateString() {
   return new Date().toISOString().split("T")[0];
 }
 async function logAction(description, metadata = {}) {
-  if (!state.loggedInUser) return; // Não faz nada se não houver usuário logado
+  if (!state.loggedInUser) return; 
 
   try {
     await api.post("/logs/admin", {
       description,
       metadata,
-      // Estes campos estavam faltando na versão anterior:
       userId: state.loggedInUser.id,
       userName: state.loggedInUser.name,
     });
@@ -257,6 +247,7 @@ async function showModal(modalName) {
         "view-checklist": renderViewChecklistModal,
         "checklist-help": renderChecklistHelpModal,
         "apply-checklist-item": renderApplyChecklistItemModal,
+        "resolve-problem": renderResolveProblemModal, // <-- NOVO MODAL
       };
       if (renderMap[modalName]) await renderMap[modalName]();
       modal.classList.remove("hidden");
@@ -286,6 +277,7 @@ async function renderPdvScreen() {
   if (!state.loggedInUser || !state.currentStore) return handleLogout();
 
   try {
+    // Esta API agora calcula o status com base nos problemas (pendências)
     const [pdvsInStore, todaysChecklist] = await Promise.all([
       api.get(`/stores/${state.currentStore.id}/pdvs-with-status`),
       api
@@ -339,17 +331,20 @@ async function renderPdvScreen() {
       )
       .forEach((pdv) => {
         const lastStatusEntry = pdv.lastStatus;
+        // O status "Sem status" agora é tratado pelo servidor se não houver problemas ou histórico
         const statusInfo = lastStatusEntry
           ? state.allData.statusTypes.find(
               (s) => s.id === lastStatusEntry.statusId
             )
           : state.allData.statusTypes.find((s) => s.name === "Sem status");
+        
         const techName = lastStatusEntry?.techName?.split(" ")[0] || "Sistema";
         let obsHtml = lastStatusEntry
           ? `<p class="text-sm text-gray-600 mt-1 truncate">${lastStatusEntry.description} <span class="text-gray-400 font-medium">- ${techName}</span></p>`
           : `<p class="text-sm text-gray-500 mt-1">Nenhuma observação.</p>`;
 
         const pdvCard = document.createElement("div");
+        // A classe de borda agora reflete o status real (seja de problema ou 'Ok')
         pdvCard.className = `bg-white p-4 rounded-lg shadow-sm border-l-4 status-border-${statusInfo.id} cursor-pointer hover:shadow-md transition-shadow`;
         pdvCard.dataset.pdvid = pdv.id;
         pdvCard.innerHTML = `<div class="flex justify-between items-center"><p class="font-bold text-lg">Caixa ${pdv.number}</p><span class="text-sm font-medium status-text-${statusInfo.id}">${statusInfo.name}</span></div>${obsHtml}`;
@@ -427,13 +422,18 @@ async function renderAdminPdvItemsScreen() {
     )
     .join("");
 }
+
+// --- FUNÇÃO MODIFICADA (Início) ---
 async function renderPdvDetailsModal() {
-  const [pdv, history, recurringProblems] = await Promise.all([
+  // Agora buscamos o histórico E as novas pendências (problemas)
+  const [pdv, history, problems] = await Promise.all([
     api.get(`/pdvs/${state.selectedPdvId}`),
     api.get(`/pdvs/${state.selectedPdvId}/history`),
-    api.get(`/pdvs/${state.selectedPdvId}/recurring-problems`),
+    api.get(`/pdvs/${state.selectedPdvId}/problems`), // <-- NOVA API
   ]);
 
+  // A lógica do status atual NÃO MUDA, pois o `renderPdvScreen` (que usa a API 'pdvs-with-status')
+  // já mostrou o status correto (baseado em problemas). Aqui só precisamos do histórico.
   const lastStatus = history[0];
   const statusInfo = lastStatus
     ? state.allData.statusTypes.find((s) => s.id === lastStatus.statusId)
@@ -449,6 +449,39 @@ async function renderPdvDetailsModal() {
     ? "block"
     : "none";
 
+  // Renderiza a lista de pendências (problemas)
+  const problemsListEl = document.getElementById("modal-pdv-problems-list");
+  problemsListEl.innerHTML = ""; // Limpa a lista
+  if (problems.length === 0) {
+    problemsListEl.innerHTML = '<p class="text-gray-500">Nenhuma pendência neste PDV.</p>';
+  } else {
+    problems.forEach(problem => {
+      if (problem.status !== 'Resolvido') {
+        // Pendência Aberta (vermelho, clicável)
+        const reportedAt = new Date(problem.created_at).toLocaleString('pt-BR');
+        problemsListEl.innerHTML += `
+          <div class="bg-red-50 border-l-4 border-red-500 p-3 rounded-r-md cursor-pointer hover:bg-red-100 problem-item" data-problemid="${problem.id}">
+              <div class="flex justify-between items-center">
+                  <p class="font-medium text-red-700">${problem.title}</p>
+                  <span class="text-xs font-semibold text-red-600">${problem.status}</span>
+              </div>
+              <p class="text-xs text-gray-600">Reportado por ${problem.reportedByTechName || 'Sistema'} em ${reportedAt}</p>
+          </div>
+        `;
+      } else {
+        // Pendência Resolvida (cinza, riscado)
+        const resolvedAt = new Date(problem.resolved_at).toLocaleString('pt-BR');
+        problemsListEl.innerHTML += `
+          <div class="bg-gray-50 border-l-4 border-gray-400 p-3 rounded-r-md opacity-75">
+              <p class="font-medium text-gray-500 line-through">${problem.title}</p>
+              <p class="text-xs text-gray-600">Resolvido por ${problem.resolvedByTechName || 'Sistema'} em ${resolvedAt}</p>
+          </div>
+        `;
+      }
+    });
+  }
+
+  // Renderiza o histórico (como antes)
   const historyEl = document.getElementById("modal-pdv-history");
   historyEl.innerHTML =
     history.length === 0
@@ -473,23 +506,37 @@ async function renderPdvDetailsModal() {
             ).toLocaleString("pt-BR")}</p></div>`;
           })
           .join("");
-
-  const recurringProblemsEl = document.getElementById(
-    "modal-pdv-recurring-problems"
-  );
-  recurringProblemsEl.innerHTML =
-    recurringProblems.length === 0
-      ? '<p class="text-gray-500">Nenhum problema recorrente registrado.</p>'
-      : recurringProblems
-          .map(
-            (problem) => `
-        <div class="flex justify-between items-center bg-gray-50 p-2 rounded">
-            <span>${problem.problemText}</span>
-            <span class="font-bold text-red-600">${problem.count} ocorrência(s)</span>
-        </div>`
-          )
-          .join("");
 }
+// --- FUNÇÃO MODIFICADA (Fim) ---
+
+// --- NOVA FUNÇÃO (Início) ---
+async function renderResolveProblemModal() {
+  try {
+    const problem = await api.get(`/api/problems/${state.selectedProblemId}`);
+    if (!problem) {
+      showToast("Problema não encontrado.", "error");
+      return showModal('pdv-details'); // Volta para o modal anterior
+    }
+
+    // Preenche os dados do problema no modal
+    document.getElementById("resolve-problem-id").value = problem.id;
+    document.getElementById("resolve-problem-title").textContent = problem.title;
+    document.getElementById("resolve-problem-reporter").textContent = problem.reportedByTechName || 'Desconhecido';
+    document.getElementById("resolve-problem-date").textContent = new Date(problem.created_at).toLocaleString('pt-BR');
+    document.getElementById("resolve-problem-item").textContent = problem.itemName || 'N/A';
+    
+    // Limpa o formulário
+    document.getElementById("resolve-problem-form").reset();
+    document.getElementById("resolve-problem-error").classList.add("hidden");
+
+  } catch (error) {
+    showToast("Erro ao carregar dados do problema.", "error");
+    showModal('pdv-details');
+  }
+}
+// --- NOVA FUNÇÃO (Fim) ---
+
+
 async function renderAddStatusModal() {
   const pdv = await api.get(`/pdvs/${state.selectedPdvId}`);
   document.getElementById(
@@ -501,9 +548,6 @@ async function renderAddStatusModal() {
     .map((s) => `<option value="${s.id}">${s.name}</option>`)
     .join("");
 
-  // --- CORREÇÃO AQUI ---
-  // O ID correto do elemento <select> é 'status-item-select'.
-  // A versão anterior poderia estar com um ID diferente ou com erro de digitação.
   const itemSelect = document.getElementById("status-item-select");
   if (itemSelect) {
     itemSelect.innerHTML =
@@ -538,6 +582,7 @@ function renderAdminUsersScreen() {
 }
 async function renderAdminUsersListScreen() {
   const users = await api.get("/users");
+  state.allData.users = users; // <-- Atualiza o cache de usuários
   document.getElementById("admin-users-list").innerHTML = users
     .map((u) => {
       const roleName = (
@@ -610,10 +655,8 @@ async function renderAdministrativeLogsScreen() {
       return;
     }
 
-    // Limpa a lista antes de adicionar os novos itens
     listEl.innerHTML = "";
 
-    // A lógica para mostrar apenas os 20 mais recentes ou todos
     const logsToDisplay = state.showFullAdminLogs
       ? allLogs
       : allLogs.slice(0, 20);
@@ -778,7 +821,6 @@ async function renderManageStoreModal() {
         .join("");
     }
 
-    // Preenche o campo de criação rápida com o próximo número de PDV sugerido
     const nextPdvNumber =
       pdvsInStore.length > 0
         ? Math.max(
@@ -793,29 +835,26 @@ async function renderManageStoreModal() {
     )
       ? nextPdvNumber
       : store.pdvNamingStart;
-    document.getElementById("add-pdv-to-store-form").reset(); // Limpa outros campos se houver
+    document.getElementById("add-pdv-to-store-form").reset();
   } catch (error) {
     pdvListEl.innerHTML = `<p class="text-red-500 text-center text-sm py-2">Erro ao carregar PDVs.</p>`;
   }
 }
 async function renderEditUserModal() {
   try {
-    // Busca a lista atualizada de usuários para garantir que temos os dados mais recentes
     const users = await api.get("/users");
     const user = users.find((u) => u.id === state.selectedUserId);
 
     if (!user) {
       showToast("Usuário não encontrado.", "error");
-      showModal(null); // Fecha o modal se o usuário não existir
+      showModal(null);
       return;
     }
 
-    // Preenche os campos do formulário com os dados do usuário
     document.getElementById("edit-user-id").value = user.id;
     document.getElementById("edit-user-name").value = user.name;
     document.getElementById("edit-user-username").value = user.username;
 
-    // Popula e seleciona o cargo (role) do usuário
     const roleSelect = document.getElementById("edit-user-role");
     roleSelect.innerHTML = state.allData.roles
       .map(
@@ -826,7 +865,6 @@ async function renderEditUserModal() {
       )
       .join("");
 
-    // Popula e seleciona a loja padrão do usuário
     const storeSelect = document.getElementById("edit-user-store");
     storeSelect.innerHTML =
       '<option value="">Nenhuma</option>' +
@@ -843,35 +881,31 @@ async function renderEditUserModal() {
   }
 }
 async function renderEditStoreModal() {
-  // 1. Encontra a loja no estado da aplicação usando o ID que foi selecionado.
   const store = state.allData.stores.find(
     (s) => s.id === state.selectedStoreId
   );
 
   if (!store) {
     showToast("Loja não encontrada.", "error");
-    showModal(null); // Fecha o modal se a loja não for encontrada.
+    showModal(null); 
     return;
   }
 
-  // 2. Popula os campos do formulário com os dados da loja encontrada.
   document.getElementById("edit-store-id").value = store.id;
   document.getElementById("edit-store-name").value = store.name;
   document.getElementById("edit-store-pdv-start").value = store.pdvNamingStart;
 }
 function renderPasswordChangeModal() {
   const form = document.getElementById("password-change-form");
-  form.reset(); // Limpa senhas antigas e campos de erro do formulário
+  form.reset(); 
 
   document.getElementById("password-change-error").classList.add("hidden");
 
-  // Preenche o nome de usuário (que é um campo somente leitura no modal)
   document.getElementById("password-change-username").value =
     state.userForPasswordChange;
 
   const isFirstLogin = state.isFirstLoginForPasswordChange;
 
-  // Adapta o título do modal e a visibilidade do campo "Senha Atual"
   const modalTitle = document.getElementById("password-modal-title");
   const currentPasswordWrapper = document.getElementById(
     "current-password-wrapper"
@@ -879,15 +913,13 @@ function renderPasswordChangeModal() {
   const currentPasswordInput = document.getElementById("current-password");
 
   if (isFirstLogin) {
-    // Cenário 1: Primeiro login
     modalTitle.textContent = "Definir sua Senha";
-    currentPasswordWrapper.style.display = "none"; // Esconde o campo "Senha Atual"
-    currentPasswordInput.required = false; // Garante que o campo não seja obrigatório
+    currentPasswordWrapper.style.display = "none"; 
+    currentPasswordInput.required = false; 
   } else {
-    // Cenário 2: Alteração de senha
     modalTitle.textContent = "Alterar Senha";
-    currentPasswordWrapper.style.display = "block"; // Mostra o campo "Senha Atual"
-    currentPasswordInput.required = true; // Torna o campo obrigatório
+    currentPasswordWrapper.style.display = "block"; 
+    currentPasswordInput.required = true; 
   }
 }
 async function renderAdminRolesScreen() {
@@ -896,7 +928,6 @@ async function renderAdminRolesScreen() {
 
   try {
     const roles = await api.get("/roles");
-    // Atualiza o estado global com os dados mais recentes
     state.allData.roles = roles;
 
     if (roles.length === 0) {
@@ -945,9 +976,8 @@ async function renderEditRoleModal() {
   document.getElementById("edit-role-id").value = role.id;
 
   const container = document.getElementById("edit-role-permissions");
-  container.innerHTML = ""; // Limpa o conteúdo anterior
+  container.innerHTML = ""; 
 
-  // Mapeamento de chaves de permissão para textos amigáveis
   const permissionLabels = {
     accessAdminPanel: "Acessar Painel Admin",
     manageUsers: "Gerenciar Usuários",
@@ -961,7 +991,6 @@ async function renderEditRoleModal() {
     canStartChecklist: "Pode Iniciar Checklist",
   };
 
-  // Cria os checkboxes para cada permissão booleana
   Object.keys(permissionLabels).forEach((key) => {
     const isChecked = role.permissions[key] ? "checked" : "";
     container.innerHTML += `
@@ -973,7 +1002,6 @@ async function renderEditRoleModal() {
         `;
   });
 
-  // Cria o seletor para a permissão de edição de status (que tem 3 opções)
   const editStatusPerm = role.permissions.editPdvStatus || "none";
   container.innerHTML += `
         <div class="pt-3 border-t">
@@ -1000,12 +1028,9 @@ async function renderChecklistScreen() {
     (a, b) => a.number.localeCompare(b.number, undefined, { numeric: true })
   );
 
-  // --- LINHA A SER ADICIONADA ---
-  state.allData.pdvs = pdvs; // Salva a lista de PDVs no estado global
+  state.allData.pdvs = pdvs; 
 
-  // Para cada PDV da loja, cria um cartão na tela
   pdvs.forEach((pdv, index) => {
-    // Procura no checklist ativo se este PDV já tem um registro
     const checkData =
       state.activeChecklist.pdvChecks.find((c) => c.pdvId === pdv.id) || {};
 
@@ -1032,7 +1057,7 @@ async function renderChecklistScreen() {
     }
 
     const card = document.createElement("div");
-    card.dataset.index = index; // Guarda o índice do PDV na lista para fácil acesso
+    card.dataset.index = index; 
     card.className = `checklist-pdv-card p-4 rounded-lg shadow-sm cursor-pointer hover:shadow-md transition-shadow flex justify-between items-center ${bgColor} ${textColor}`;
 
     card.innerHTML = `
@@ -1044,21 +1069,18 @@ async function renderChecklistScreen() {
   });
 }
 async function renderChecklistPdvModal() {
-  // Busca a lista de PDVs da loja, já ordenada
   const pdvsDaLoja = (
     await api.get(`/stores/${state.currentStore.id}/pdvs-with-status`)
   ).sort((a, b) =>
     a.number.localeCompare(b.number, undefined, { numeric: true })
   );
 
-  // Pega o PDV específico que estamos verificando agora
   const pdv = pdvsDaLoja[state.currentChecklistPdvIndex];
   if (!pdv) {
     showToast("Erro: PDV não encontrado.", "error");
     return;
   }
 
-  // Procura por dados já preenchidos neste checklist
   const checkData =
     state.activeChecklist.pdvChecks.find((c) => c.pdvId === pdv.id) || {};
 
@@ -1066,7 +1088,6 @@ async function renderChecklistPdvModal() {
     "checklist-pdv-modal-title"
   ).textContent = `Verificando Caixa ${pdv.number}`;
 
-  // Mostra o status atual do PDV
   const currentStatusInfoEl = document.getElementById(
     "checklist-current-status-info"
   );
@@ -1080,7 +1101,6 @@ async function renderChecklistPdvModal() {
     currentStatusInfoEl.innerHTML = `<strong>Status Atual:</strong> Sem status`;
   }
 
-  // Cria a lista de itens a serem verificados como checkboxes
   const allItems = getChecklistItemsForStore(state.currentStore.id);
   const itemsContainer = document.getElementById("checklist-pdv-items");
   itemsContainer.innerHTML =
@@ -1104,11 +1124,9 @@ async function renderChecklistPdvModal() {
       )
       .join("");
 
-  // Preenche o campo de observação
   document.getElementById("checklist-observation").value =
     checkData.observation || "";
 
-  // Configura o seletor de status
   const statusSelect = document.getElementById("checklist-new-status");
   const okStatus = state.allData.statusTypes.find((s) => s.name === "Ok");
   statusSelect.innerHTML =
@@ -1118,10 +1136,8 @@ async function renderChecklistPdvModal() {
       .map((s) => `<option value="${s.id}">${s.name}</option>`)
       .join("");
 
-  // Seleciona o status salvo ou 'Ok' como padrão
   statusSelect.value = checkData.newStatusId || okStatus.id;
 
-  // Habilita/desabilita os botões de navegação "Anterior" e "Próximo"
   document.getElementById("checklist-prev-pdv-btn").disabled =
     state.currentChecklistPdvIndex === 0;
   document.getElementById("checklist-next-pdv-btn").disabled =
@@ -1136,19 +1152,15 @@ async function renderChecklistConfigModal() {
     return;
   }
 
-  // Define o título do modal com o nome da loja
   document.getElementById(
     "checklist-config-title"
   ).textContent = `Configurações de Checklist: ${store.name}`;
 
-  // Preenche o valor do campo de limite de dias
   document.getElementById("checklist-days-limit").value =
     store.checklistConfig.noChecklistDaysLimit;
 
-  // Limpa o formulário de adicionar novo item
   document.getElementById("add-checklist-item-form").reset();
 
-  // Renderiza a lista de itens de checklist que são específicos da loja
   const listEl = document.getElementById("checklist-config-items-list");
   const customItems = store.checklistConfig?.items || [];
 
@@ -1174,7 +1186,6 @@ async function renderChecklistHistoryScreen() {
 
   const currentStoreId = filterEl.value || "";
 
-  // Popula o seletor de lojas
   filterEl.innerHTML =
     `<option value="">Todas as Lojas</option>` +
     state.allData.stores
@@ -1189,7 +1200,6 @@ async function renderChecklistHistoryScreen() {
   listEl.innerHTML = `<p class="text-center text-gray-500">Carregando histórico...</p>`;
 
   try {
-    // Busca o histórico da API, passando o filtro de loja se houver
     const completedChecklists = await api.get(
       `/checklists/history?storeId=${currentStoreId}`
     );
@@ -1199,7 +1209,6 @@ async function renderChecklistHistoryScreen() {
       return;
     }
 
-    // Busca todos os usuários para poder exibir o nome de quem finalizou
     const users = await api.get("/users");
 
     listEl.innerHTML = completedChecklists
@@ -1244,7 +1253,6 @@ async function renderViewChecklistModal() {
   contentEl.innerHTML = `<p class="text-center text-gray-500">Carregando detalhes...</p>`;
 
   try {
-    // Busca os dados completos do checklist selecionado
     const checklist = await api.get(`/checklists/${state.selectedChecklistId}`);
     if (!checklist) {
       contentEl.innerHTML = `<p class="text-center text-red-500">Checklist não encontrado.</p>`;
@@ -1259,9 +1267,8 @@ async function renderViewChecklistModal() {
       "view-checklist-modal-title"
     ).textContent = `Checklist de ${store.name} - ${formattedDate}`;
 
-    contentEl.innerHTML = ""; // Limpa o "Carregando..."
+    contentEl.innerHTML = ""; 
 
-    // Pega a lista completa de itens de checklist para a loja (padrão + customizados)
     const allItemsForStore = getChecklistItemsForStore(store.id);
     const allItemsMap = new Map(
       allItemsForStore.map((item) => [item.id, item.text])
@@ -1271,10 +1278,9 @@ async function renderViewChecklistModal() {
       (a, b) => a.number.localeCompare(b.number, undefined, { numeric: true })
     );
 
-    // Itera sobre cada PDV da loja para mostrar seu status no checklist
     pdvsDaLoja.forEach((pdv) => {
       const checkData = checklist.pdvChecks.find((c) => c.pdvId === pdv.id);
-      if (!checkData) return; // Pula PDVs que não foram verificados (caso raro)
+      if (!checkData) return; 
 
       let resultHtml = "";
       let observationHtml = checkData.observation
@@ -1324,13 +1330,11 @@ function getChecklistItemsForStore(storeId) {
   const store = state.allData.stores.find((s) => s.id === storeId);
   if (!store) return [];
 
-  // Itens padrão para todos os PDVs
   const standardItems = state.allData.pdvItems.map((item) => ({
     id: `std-${item.id}`,
     text: `Verificar ${item.name}`,
   }));
 
-  // Itens customizados específicos da loja
   const customItems = (store.checklistConfig?.items || []).map((item) => ({
     id: `cst-${item.id}`,
     text: item.text,
@@ -1340,7 +1344,7 @@ function getChecklistItemsForStore(storeId) {
 }
 function renderChecklistHelpModal() {
   const listEl = document.getElementById("checklist-help-list");
-  listEl.innerHTML = ""; // Limpa a lista anterior
+  listEl.innerHTML = ""; 
 
   if (state.currentStore) {
     const allItems = getChecklistItemsForStore(state.currentStore.id);
@@ -1362,7 +1366,6 @@ function renderDashboard(pdvsInStore, todaysChecklist) {
     return;
   }
 
-  // --- Card 1: Visão Geral da Loja ---
   const statusCounts = pdvsInStore.reduce((acc, pdv) => {
     const statusId =
       pdv.lastStatus?.statusId ||
@@ -1374,6 +1377,7 @@ function renderDashboard(pdvsInStore, todaysChecklist) {
   let overviewContent = Object.entries(statusCounts)
     .map(([statusId, count]) => {
       const status = state.allData.statusTypes.find((s) => s.id == statusId);
+      if (!status) return ''; // Adiciona verificação
       return `<div class="flex justify-between items-center text-sm">
                     <span class="flex items-center">
                         <div class="w-3 h-3 rounded-full mr-2 status-bg-${status.id}"></div>${status.name}
@@ -1387,7 +1391,6 @@ function renderDashboard(pdvsInStore, todaysChecklist) {
     overviewContent = `<p class="text-sm text-gray-300">Nenhum PDV cadastrado nesta loja.</p>`;
   }
 
-  // --- Card 2: Status do Checklist ---
   let checklistContent = "";
   if (todaysChecklist && todaysChecklist.status === "completed") {
     checklistContent = `<p class="text-sm text-green-300">Checklist de hoje finalizado!</p>`;
@@ -1397,11 +1400,8 @@ function renderDashboard(pdvsInStore, todaysChecklist) {
     checklistContent = `<p class="text-sm text-gray-300">Checklist de hoje ainda não foi iniciado.</p>`;
   }
 
-  // --- Card 3: Problemas Recorrentes (placeholder, pois requer uma API complexa) ---
-  // Esta parte pode ser implementada depois, criando uma rota de API específica
   let topProblemsContent = `<p class="text-sm text-gray-300">Funcionalidade de top problemas a ser implementada.</p>`;
 
-  // --- Montagem do HTML ---
   container.innerHTML = `
         <div class="dashboard-slider-wrapper" style="transform: translateX(-${
           state.dashboardActiveSlide * 100
@@ -1432,7 +1432,6 @@ function renderDashboard(pdvsInStore, todaysChecklist) {
         </div>
     `;
 
-  // --- Lógica do Slider ---
   const wrapper = container.querySelector(".dashboard-slider-wrapper");
   const dots = container.querySelectorAll(".dashboard-dot");
 
@@ -1456,7 +1455,6 @@ function renderDashboard(pdvsInStore, todaysChecklist) {
     });
   });
 
-  // Lógica de Swipe
   let touchStartX = 0;
   let isDragging = false;
   const dragStart = (e) => {
@@ -1494,7 +1492,6 @@ function saveAndValidateCurrentChecklistPdv() {
     );
   const pdv = pdvsDaLoja[state.currentChecklistPdvIndex];
 
-  // Encontra o último status registrado para este PDV antes do checklist
   const lastStatus = pdv.lastStatus;
   const lastStatusId = lastStatus
     ? lastStatus.statusId
@@ -1507,7 +1504,7 @@ function saveAndValidateCurrentChecklistPdv() {
     .getElementById("checklist-observation")
     .value.trim();
 
-  // Validação: Se o status foi alterado, a observação é obrigatória.
+  // A validação de observação só se aplica se o status for alterado
   if (selectedStatusId !== lastStatusId && observation.length < 4) {
     showToast(
       "Observação de no mínimo 4 caracteres é obrigatória ao alterar o status.",
@@ -1516,7 +1513,6 @@ function saveAndValidateCurrentChecklistPdv() {
     return false;
   }
 
-  // Encontra ou cria o registro para este PDV no checklist ativo
   let checkData = state.activeChecklist.pdvChecks.find(
     (c) => c.pdvId === pdv.id
   );
@@ -1529,32 +1525,28 @@ function saveAndValidateCurrentChecklistPdv() {
 
   if (selectedStatusId === okStatusId) {
     checkData.result = "ok";
-    checkData.issues = []; // Limpa os problemas se o status for 'Ok'
+    checkData.issues = []; 
   } else {
     checkData.result = "problem";
-    // Pega os IDs dos itens marcados como problemáticos
     checkData.issues = Array.from(
       document.querySelectorAll(".checklist-item-checkbox:checked")
     ).map((cb) => cb.dataset.itemid);
   }
 
-  // Atualiza os dados do checklist com as informações do modal
   checkData.newStatusId = selectedStatusId;
   checkData.observation = observation;
 
-  return true; // Retorna true se a validação passou
+  return true; 
 }
 function renderApplyChecklistItemModal() {
   const listEl = document.getElementById("apply-item-stores-list");
   const itemTextEl = document.getElementById("apply-item-text");
   const markAllCheckbox = document.getElementById("apply-item-all-stores");
 
-  // Exibe o texto do item que está sendo adicionado
   if (itemTextEl) {
     itemTextEl.textContent = state.checklistItemToAdd;
   }
 
-  // Cria a lista de lojas com checkboxes
   if (listEl) {
     listEl.innerHTML = state.allData.stores
       .map(
@@ -1576,7 +1568,6 @@ function renderApplyChecklistItemModal() {
       .join("");
   }
 
-  // Garante que a caixa "Marcar Todas" comece desmarcada
   if (markAllCheckbox) {
     markAllCheckbox.checked = false;
   }
@@ -1609,10 +1600,17 @@ function setupAllEventListeners() {
         ]);
         state.allData = { roles, stores, pdvItems, statusTypes };
         applyStatusColors();
+        
+        // Pós-login, busca usuários para o cache (necessário para 'change-password-link')
+        api.get("/users").then(users => { state.allData.users = users; });
 
         state.currentStore = state.loggedInUser.storeId
           ? stores.find((s) => s.id === state.loggedInUser.storeId)
           : stores[0] || null;
+        
+        if (state.currentStore) {
+            localStorage.setItem("selectedStoreId", state.currentStore.id);
+        }
 
         e.target.reset();
         await showScreen("pdv");
@@ -1628,46 +1626,36 @@ function setupAllEventListeners() {
       }
     });
 
-  // FILTRO HISTÓRICO DE CHECKLISTS POR LOJA
-    document
-        .getElementById("checklist-history-store-filter")
-        .addEventListener("change", renderChecklistHistoryScreen
+  document
+    .getElementById("checklist-history-store-filter")
+    .addEventListener("change", renderChecklistHistoryScreen);
 
-    );
-
-    // FILTRO DE LOGS DE PDV POR LOJA
-    document.getElementById('pdv-log-store-filter').addEventListener('change', () => {
-        state.showFullPdvLogs = false; // Reseta a visualização para o modo resumido
-        renderPdvLogsScreen();
+  document
+    .getElementById("pdv-log-store-filter")
+    .addEventListener("change", () => {
+      state.showFullPdvLogs = false; 
+      renderPdvLogsScreen();
     });
 
-    // VER HISTORICO COMPLETO DO LOG DE PDV
-    document.getElementById('pdv-logs-list').addEventListener('click', (e) => {
-        // Verifica se o elemento clicado é o botão de "Histórico Completo"
-        if (e.target.id === 'show-full-pdv-logs-btn') {
-            state.showFullPdvLogs = true; // Atualiza o estado para indicar que queremos ver tudo
-            renderPdvLogsScreen(); // Chama a função de renderização novamente
-        }
-    });
+  document.getElementById("pdv-logs-list").addEventListener("click", (e) => {
+    if (e.target.id === "show-full-pdv-logs-btn") {
+      state.showFullPdvLogs = true; 
+      renderPdvLogsScreen(); 
+    }
+  });
 
-  //NAVEGAÇÃO DO MODAL DE CAIXA NA FUNÇÃO DE CHECKLIST
   document
     .getElementById("checklist-pdv-modal")
     .addEventListener("click", async (e) => {
-      // Verifica se o alvo do clique é o próprio container do modal (o fundo escuro)
       if (e.target === document.getElementById("checklist-pdv-modal")) {
-        showModal(null); // Apenas fecha todos os modais
-        return; // E para a execução da função aqui
+        showModal(null); 
+        return; 
       }
-      // Botão de ajuda (?)
       if (e.target.closest("#checklist-help-btn")) {
         await showModal("checklist-help");
         return;
       }
 
-      
-
-      // Busca a lista de PDVs da loja uma única vez para usar em todas as ações
       const pdvsDaLoja = (
         await api.get(`/stores/${state.currentStore.id}/pdvs`)
       ).sort((a, b) =>
@@ -1687,18 +1675,17 @@ function setupAllEventListeners() {
         state.activeChecklist.pdvChecks.push(checkData);
       }
 
-     
-
-// Botões "Incluir" (antigo "Tudo OK") e "Salvar e Voltar" agora têm a mesma função: salvar e fechar.
-    if (e.target.id === 'checklist-ok-btn' || e.target.id === 'checklist-save-and-close-btn') {
-        if (saveAndValidateCurrentChecklistPdv()) { // Valida e salva os dados do formulário no 'state'
-            await showModal(null); // Fecha o modal
-            await renderChecklistScreen(); // Atualiza a tela de checklist para refletir a mudança
+      if (
+        e.target.id === "checklist-ok-btn" ||
+        e.target.id === "checklist-save-and-close-btn"
+      ) {
+        if (saveAndValidateCurrentChecklistPdv()) {
+          await showModal(null); 
+          await renderChecklistScreen(); 
         }
         return;
-    }
+      }
 
-          // Botão "Caixa Ocupado"
       if (e.target.id === "checklist-busy-btn") {
         checkData.result = "busy";
         checkData.issues = [];
@@ -1706,10 +1693,9 @@ function setupAllEventListeners() {
         checkData.newStatusId = null;
         await showModal(null);
         await renderChecklistScreen();
-        return; // Finaliza a execução para este botão
+        return; 
       }
 
-      // Ações que precisam validar e salvar os dados do formulário
       if (
         [
           "checklist-save-and-close-btn",
@@ -1717,7 +1703,6 @@ function setupAllEventListeners() {
           "checklist-next-pdv-btn",
         ].includes(e.target.id)
       ) {
-        // Validação ocorre apenas para estes botões
         if (!saveAndValidateCurrentChecklistPdv()) {
           return;
         }
@@ -1744,7 +1729,6 @@ function setupAllEventListeners() {
   document
     .getElementById("admin-stores-screen")
     .addEventListener("click", (e) => {
-      // Verifica se o clique foi no botão de gerenciar itens de PDV ou em algo dentro dele
       if (e.target.closest("#goto-pdv-items-btn")) {
         e.preventDefault();
         showScreen("admin-pdv-items");
@@ -1753,7 +1737,7 @@ function setupAllEventListeners() {
   document
     .getElementById("add-pdv-item-form")
     .addEventListener("submit", (e) => {
-      e.preventDefault(); // Impede o recarregamento da página
+      e.preventDefault(); 
       const name = document.getElementById("new-pdv-item-name").value.trim();
       if (!name) return;
 
@@ -1763,17 +1747,16 @@ function setupAllEventListeners() {
           await logAction(`Adicionou o item de PDV padrão "${name}".`);
           showToast("Item padrão adicionado!");
           e.target.reset();
-          await showScreen("admin-pdv-items"); // Re-renderiza a tela para mostrar o novo item
+          await showScreen("admin-pdv-items"); 
         } catch (error) {
-          // O erro já é exibido pelo helper da API, não precisa fazer nada aqui.
+          // O erro já é exibido pelo helper da API
         }
       };
 
-      // RENDER LISTENERS
       document
         .getElementById("pdv-log-store-filter")
         .addEventListener("change", () => {
-          state.showFullPdvLogs = false; // Reseta a visualização ao mudar de loja
+          state.showFullPdvLogs = false; 
           renderPdvLogsScreen();
         });
 
@@ -1800,9 +1783,19 @@ function setupAllEventListeners() {
       const username = document.getElementById("username").value;
       if (!username)
         return showToast("Por favor, informe seu usuário primeiro.", "error");
+      
+      // Garante que temos a lista de usuários
+      if (!state.allData.users) {
+          return showToast("Aguarde, carregando dados de usuário...", "info");
+      }
+
       const user = state.allData.users.find((u) => u.username === username);
+      if (!user) {
+          return showToast("Usuário não encontrado.", "error");
+      }
+
       state.userForPasswordChange = username;
-      state.isFirstLoginForPasswordChange = user && user.password === null;
+      state.isFirstLoginForPasswordChange = user.password === null;
       showModal("password-change");
     });
 
@@ -1877,10 +1870,12 @@ function setupAllEventListeners() {
     "close-checklist-help-btn",
     "cancel-apply-item-btn",
     "cancel-checklist-config-btn",
+    "cancel-resolve-problem-btn", // <-- BOTÃO ADICIONADO
   ].forEach((id) => {
     document.getElementById(id)?.addEventListener("click", async (e) => {
       let newModal = null;
-      if (e.target.id === "cancel-add-status-btn") newModal = "pdv-details";
+      if (e.target.id === "cancel-add-status-btn" || e.target.id === 'cancel-resolve-problem-btn') // <-- LÓGICA ADICIONADA
+        newModal = "pdv-details";
       else if (
         e.target.id === "cancel-checklist-config-btn" ||
         e.target.id === "cancel-apply-item-btn"
@@ -1905,8 +1900,6 @@ function setupAllEventListeners() {
       const storeId = parseInt(target.dataset.storeid);
       state.currentStore = state.allData.stores.find((s) => s.id === storeId);
 
-      // --- LINHA ADICIONADA ---
-      // Salva o ID da loja selecionada no localStorage
       localStorage.setItem("selectedStoreId", storeId);
 
       showModal(null);
@@ -1967,6 +1960,9 @@ function setupAllEventListeners() {
       await showModal(null);
     });
 
+  // --- LISTENER MODIFICADO (Início) ---
+  // Este listener agora apenas envia os dados. O servidor decide se cria um 'problem'.
+  // O refresh do modal e da tela principal buscará o status atualizado.
   document
     .getElementById("add-status-form")
     .addEventListener("submit", async (e) => {
@@ -1977,19 +1973,56 @@ function setupAllEventListeners() {
         ? parseInt(document.getElementById("status-item-select").value)
         : null;
       try {
+        // A API /api/pdvs/:id/status-history agora é autenticada
         await api.post(`/pdvs/${state.selectedPdvId}/status-history`, {
           statusId,
           description,
           itemId,
-          techId: state.loggedInUser.id,
+          // techId é pego automaticamente pelo servidor via token
         });
-        await showModal("pdv-details");
-        await renderPdvScreen();
+        
+        // Atualiza o modal de detalhes (para mostrar a nova pendência/histórico)
+        await showModal("pdv-details"); 
+        // Atualiza a tela principal (para mostrar o novo status geral do PDV)
+        await renderPdvScreen(); 
         showToast("Status salvo com sucesso!");
       } catch (error) {
         showToast("Falha ao salvar status.", "error");
       }
     });
+  // --- LISTENER MODIFICADO (Fim) ---
+  
+  // --- NOVO LISTENER (Início) ---
+  // Listener para o formulário de resolver pendência
+  document.getElementById("resolve-problem-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const problemId = state.selectedProblemId;
+    const solutionNotes = document.getElementById("resolve-problem-notes").value;
+    const errorEl = document.getElementById("resolve-problem-error");
+
+    errorEl.classList.add('hidden');
+
+    if (solutionNotes.length < 10) {
+      errorEl.textContent = "A solução deve ter pelo menos 10 caracteres.";
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
+    try {
+      await api.put(`/api/problems/${problemId}/resolve`, { solutionNotes });
+      showToast("Pendência resolvida com sucesso!");
+      
+      // Recarrega o modal de detalhes e a tela principal
+      await showModal('pdv-details');
+      await renderPdvScreen();
+
+    } catch (error) {
+      errorEl.textContent = error.message;
+      errorEl.classList.remove('hidden');
+    }
+  });
+  // --- NOVO LISTENER (Fim) ---
+
 
   document.getElementById("add-store-form").addEventListener("submit", (e) => {
     e.preventDefault();
@@ -2155,9 +2188,23 @@ function setupAllEventListeners() {
   // --- EVENTOS DELEGAÇÃO ---
 document.getElementById('app-container').addEventListener('click', async (e) => {
     const { target } = e;
+
+    // --- NOVO LISTENER DE CLIQUE (Início) ---
+    // Detecta clique em um item de problema pendente
+    const problemItem = target.closest('.problem-item');
+    if (problemItem) {
+        const problemId = parseInt(problemItem.dataset.problemid);
+        if (problemId) {
+            state.selectedProblemId = problemId;
+            await showModal('resolve-problem');
+        }
+        return; // Para a execução para não ser pego por outros listeners
+    }
+    // --- NOVO LISTENER DE CLIQUE (Fim) ---
+
+
     const el = target.closest('[data-userid], [data-storeid], [data-pdvid], [data-statusid], [data-roleid], [data-itemid], [data-checklistid]');
 
-    // Botão 'Visualizar' do Histórico de Checklist
     if (target.matches('.view-checklist-log-btn, .view-checklist-history-btn')) {
         const checklistId = parseInt(target.dataset.checklistid);
         if (checklistId) {
@@ -2176,7 +2223,6 @@ document.getElementById('app-container').addEventListener('click', async (e) => 
         const user = state.allData.users.find(u => u.id === userId);
         if (!user) return;
         
-        // Validações de segurança no front-end
         if (user.username === 'admin') return showToast('O usuário "admin" não pode ser removido.', 'error');
         if (user.id === state.loggedInUser.id) return showToast('Você não pode remover a si mesmo.', 'error');
         
@@ -2213,7 +2259,6 @@ document.getElementById('app-container').addEventListener('click', async (e) => 
         await showModal('manage-store');
         
     } else if (target.id === 'goto-checklist-config-btn') {
-        console.log('clicado')
         e.preventDefault();
         await showModal('checklist-config');
     } 
@@ -2224,7 +2269,7 @@ document.getElementById('app-container').addEventListener('click', async (e) => 
         const action = async () => {
             await api.delete(`/pdvs/${pdvId}`);
             await logAction(`Removeu um PDV.`);
-            await renderManageStoreModal(); // Re-renderiza o modal atual
+            await renderManageStoreModal(); 
             showToast('PDV removido!');
         };
         showConfirmationModal('Remover PDV', `Remover este PDV?`, action);
@@ -2235,7 +2280,7 @@ document.getElementById('app-container').addEventListener('click', async (e) => 
         const statusId = parseInt(statusid);
         const status = state.allData.statusTypes.find(s => s.id === statusId);
         const action = async () => {
-            await api.delete(`/status-types/${statusId}`);
+            await api.delete(`/status-types/${statusId}`); // <-- ESTA ROTA PRECISA EXISTIR NO SERVER.JS (Não estava no plano, mas é necessária)
             await logAction(`Removeu o status "${status.name}".`);
             await showScreen('admin-status');
             showToast('Status removido!');
@@ -2251,7 +2296,7 @@ document.getElementById('app-container').addEventListener('click', async (e) => 
         const roleId = parseInt(roleid);
         const role = state.allData.roles.find(r => r.id === roleId);
         const action = async () => {
-            await api.delete(`/roles/${roleId}`);
+            await api.delete(`/roles/${roleId}`); // <-- ESTA ROTA PRECISA EXISTIR NO SERVER.JS (Não estava no plano, mas é necessária)
             await logAction(`Removeu o cargo "${role.name}".`);
             await showScreen('admin-roles');
             showToast('Cargo removido!');
@@ -2282,7 +2327,6 @@ document.getElementById('app-container').addEventListener('click', async (e) => 
         );
         state.activeChecklist = checklist;
       } catch (error) {
-        // Se der 404 (não encontrado), cria um novo checklist no estado local
         state.activeChecklist = {
           storeId: state.currentStore.id,
           date: getTodayDateString(),
@@ -2330,12 +2374,13 @@ document.getElementById('app-container').addEventListener('click', async (e) => 
       const action = async () => {
         state.activeChecklist.status = "completed";
         state.activeChecklist.finalizedByUserId = state.loggedInUser.id;
+        // A API de POST /checklists agora lida com a criação de 'problems'
         await api.post("/checklists", state.activeChecklist);
         await logAction(
           `Finalizou o checklist da loja ${state.currentStore.name}.`
         );
         showToast("Checklist finalizado!");
-        await showScreen("pdv");
+        await showScreen("pdv"); // Recarrega a tela principal (que mostrará os novos status)
       };
       showConfirmationModal(
         "Finalizar Checklist",
@@ -2353,40 +2398,34 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }, 1250);
 
-  setupAllEventListeners(); // Configura todos os cliques e formulários
+  setupAllEventListeners(); 
 
   const token = localStorage.getItem("authToken");
   if (token) {
     try {
-      // Tenta validar o token existente no servidor
       const { user } = await api.get("/auth/me");
       state.loggedInUser = user;
 
-      // Se o token for válido, carrega todos os dados essenciais da aplicação
       const [roles, stores, pdvItems, statusTypes, users] = await Promise.all([
         api.get("/roles"),
         api.get("/stores"),
         api.get("/pdv-items"),
         api.get("/status-types"),
-        api.get("/users"), // Busca os usuários também
+        api.get("/users"), 
       ]);
       state.allData = { roles, stores, pdvItems, statusTypes, users };
       applyStatusColors();
 
-      // Define a loja atual e exibe a tela principal
-      // 1. Tenta pegar a loja salva no localStorage
       const savedStoreId = localStorage.getItem("selectedStoreId");
       let selectedStore = null;
       if (savedStoreId) {
         selectedStore = stores.find((s) => s.id == savedStoreId);
       }
 
-      // 2. Se não encontrou no localStorage, usa a loja padrão do usuário
       if (!selectedStore && state.loggedInUser.storeId) {
         selectedStore = stores.find((s) => s.id === state.loggedInUser.storeId);
       }
 
-      // 3. Se ainda não encontrou, usa a primeira loja da lista como último recurso
       if (!selectedStore) {
         selectedStore = stores[0] || null;
       }
@@ -2394,22 +2433,19 @@ document.addEventListener("DOMContentLoaded", async () => {
       state.currentStore = selectedStore;
       await showScreen("pdv");
     } catch (error) {
-      // Se o token for inválido ou expirado, limpa e vai para a tela de login
       localStorage.removeItem("authToken");
-      window.location.reload(); // Recarrega a página para o estado de "deslogado"
+      window.location.reload(); 
     }
   } else {
-    // Se não houver token, carrega os dados básicos para a tela de login
     try {
-      // --- MUDANÇA PRINCIPAL AQUI ---
+      // Carrega os dados básicos (incluindo usuários) para a tela de login
       const [roles, stores, pdvItems, statusTypes, users] = await Promise.all([
         api.get("/roles"),
         api.get("/stores"),
         api.get("/pdv-items"),
         api.get("/status-types"),
-        api.get("/users"), // ADICIONADO: Busca a lista de usuários
+        api.get("/users"), 
       ]);
-      // ADICIONADO: 'users' ao estado global
       state.allData = { roles, stores, pdvItems, statusTypes, users };
       applyStatusColors();
     } catch (e) {

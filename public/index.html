@@ -103,7 +103,6 @@
 </head>
 <body class="bg-gray-100 text-gray-800">
 
-    <!-- Tela de Carregamento -->
     <section id="loading-screen" class="fixed inset-0 bg-[#0c0d3d] flex flex-col justify-center items-center z-50">        
         <img src="/assets/logo-ti.png" alt="Logo TI - Rede Nilo" class="h-[100px] w-auto  mb-4 logo-pulse">
         <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
@@ -111,7 +110,6 @@
 
 
 
-    <!-- Menu Lateral -->
     <div id="menu-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden"></div>
     <div id="side-menu" class="fixed top-0 left-0 h-full w-2/3 max-w-xs bg-[#0c0d3d] text-white z-40 transform -translate-x-full transition-transform duration-300 ease-in-out">
         <div class="p-4">
@@ -137,7 +135,6 @@
 
     <main id="app-container" class="w-full mx-auto min-h-screen bg-white">
         
-        <!-- Tela de Login -->
         <section id="login-screen" class="hidden h-full flex flex-col justify-center items-center p-4">
              <div class="w-full max-w-sm sm:max-w-md">
                 <div class="text-center mb-10">
@@ -170,7 +167,6 @@
             </div>
         </section>
 
-        <!-- Tela Principal (PDV) -->
         <section id="pdv-screen" class="hidden flex-col h-full">
             <header class="bg-[#0c0d3d] text-white shadow-md p-4 sticky top-0 z-10 flex items-center justify-between">
                 <button id="open-menu-btn" class="p-2 rounded-full hover:bg-white/10">
@@ -184,8 +180,7 @@
             
             <div class="p-4 flex-grow overflow-y-auto">
                 <div id="dashboard-container" class="mb-6">
-                    <!-- Dashboard será renderizado aqui -->
-                </div>
+                    </div>
                 <div id="checklist-control-panel" class="mb-4"></div>
                 <div>
                     <h3 class="text-lg font-semibold mb-3 px-1">PDVs da Loja</h3>
@@ -194,7 +189,6 @@
             </div>
         </section>
 
-        <!-- Tela de Checklist -->
         <section id="checklist-screen" class="hidden flex-col h-full">
             <header class="bg-[#0c0d3d] text-white shadow-md p-4 sticky top-0 z-10 flex items-center justify-between">
                 <div class="flex items-center">
@@ -209,22 +203,18 @@
                 </div>
             </header>
             <div id="checklist-pdv-list" class="p-4 flex-grow overflow-y-auto space-y-3">
-                <!-- PDVs para checklist são inseridos aqui -->
-            </div>
+                </div>
         </section>
 
-        <!-- #region Telas de Administração -->
         <section id="admin-main-menu-screen" class="hidden flex-col h-full">
              <header class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center justify-between">
                 <button id="admin-back-to-pdv-btn" class="p-2 rounded-full hover:bg-white/10">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
                 </button>
                 <h2 class="text-xl font-bold">Administração</h2>
-                <div class="w-10"></div> <!-- Placeholder for spacing -->
-            </header>
+                <div class="w-10"></div> </header>
             <div id="admin-menu-options" class="p-4 flex-grow overflow-y-auto flex flex-col gap-3">
-                <!-- Opções de menu são inseridas dinamicamente aqui -->
-            </div>
+                </div>
         </section>
         
         <section id="checklist-history-screen" class="hidden flex-col h-full">
@@ -238,8 +228,7 @@
                 <select id="checklist-history-store-filter" class="w-full p-2 border rounded-md mb-4"></select>
             </div>
             <div id="checklist-history-list" class="px-4 pb-4 flex-grow overflow-y-auto space-y-3">
-                <!-- History items will be inserted here -->
-            </div>
+                </div>
         </section>
 
         <section id="admin-roles-screen" class="hidden flex-col h-full">
@@ -399,25 +388,25 @@
                 </form>
             </div>
         </section>
-        <!-- #endregion -->
+        </main>
 
-    </main>
-
-    <!-- #region Modals -->
     <div id="pdv-details-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-20 hidden p-4">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
             <div class="p-4 border-b">
                 <h3 class="text-lg font-semibold" id="modal-pdv-title"></h3>
                 <p class="text-sm">Status Atual: <span class="font-bold" id="modal-pdv-current-status"></span></p>
             </div>
+            
             <div class="p-4 flex-grow overflow-y-auto">
-                <h4 class="font-semibold mb-3">Histórico de Status</h4>
-                <div id="modal-pdv-history" class="space-y-3"></div>
+                <div class="mb-4">
+                    <h4 class="font-semibold mb-3">Pendências do Caixa (Últimas 5)</h4>
+                    <div id="modal-pdv-problems-list" class="space-y-2 text-sm">
+                        </div>
+                </div>
                 <div class="mt-4 pt-4 border-t">
-                    <h4 class="font-semibold mb-3">Problemas Recorrentes</h4>
-                    <div id="modal-pdv-recurring-problems" class="space-y-2 text-sm">
-                        <!-- Content will be rendered here by JS -->
-                    </div>
+                    <h4 class="font-semibold mb-3">Histórico de Status (Últimos Eventos)</h4>
+                    <div id="modal-pdv-history" class="space-y-3">
+                        </div>
                 </div>
             </div>
             <div class="p-4 bg-gray-50 border-t flex flex-wrap gap-2 justify-end">
@@ -609,7 +598,32 @@
         </div>
     </div>
 
-    <!-- MODAL DE CHECKLIST DO PDV -->
+    <div id="resolve-problem-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
+            <form id="resolve-problem-form">
+                <input type="hidden" id="resolve-problem-id">
+                <div class="p-4 border-b">
+                    <h3 class="text-lg font-semibold" id="resolve-problem-modal-title">Solucionar Pendência</h3>
+                </div>
+                <div class="p-4 space-y-4">
+                    <div class="p-3 bg-gray-50 rounded-md text-sm space-y-1">
+                        <p><strong>Problema:</strong> <span id="resolve-problem-title" class="text-gray-800"></span></p>
+                        <p class="text-xs text-gray-600"><strong>Reportado por:</strong> <span id="resolve-problem-reporter"></span> em <span id="resolve-problem-date"></span></p>
+                        <p class="text-xs text-gray-600"><strong>Componente:</strong> <span id="resolve-problem-item"></span></p>
+                    </div>
+                     <div>
+                        <label for="resolve-problem-notes" class="block text-sm font-medium text-gray-700 mb-1">Descrição da Solução (mín. 10 caracteres)</label>
+                        <textarea id="resolve-problem-notes" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Descreva o que foi feito para solucionar este problema..." required minlength="10"></textarea>
+                        <p id="resolve-problem-error" class="text-red-500 text-sm mt-2 hidden"></p>
+                    </div>
+                </div>
+                <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
+                    <button type="button" id="cancel-resolve-problem-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
+                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Marcar como Resolvido</button>
+                </div>
+            </form>
+        </div>
+    </div>
     <div id="checklist-pdv-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden p-4">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[95vh] flex flex-col">
             <div class="p-4 border-b flex justify-between items-center">
@@ -654,8 +668,7 @@
                 <h3 class="text-lg font-semibold">Itens a Verificar</h3>
             </div>
             <div id="checklist-help-list" class="p-4 space-y-2 text-sm">
-                <!-- Itens do checklist -->
-            </div>
+                </div>
             <div class="p-4 bg-gray-50 border-t flex justify-end">
                 <button id="close-checklist-help-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Fechar</button>
             </div>
@@ -663,7 +676,6 @@
     </div>
 
 
-    <!-- MODAL DE CONFIG CHECKLIST -->
     <div id="checklist-config-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden p-4">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
             <div class="p-4 border-b"><h3 class="text-lg font-semibold" id="checklist-config-title"></h3></div>
@@ -694,8 +706,7 @@
             <div class="p-4">
                 <p class="mb-4">Selecione as lojas para adicionar o item: "<span id="apply-item-text" class="font-semibold"></span>"</p>
                 <div class="space-y-2 max-h-60 overflow-y-auto" id="apply-item-stores-list">
-                    <!-- Store checkboxes will be injected here -->
-                </div>
+                    </div>
                  <div class="flex items-center mt-4">
                     <input id="apply-item-all-stores" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
                     <label for="apply-item-all-stores" class="ml-2 block text-sm text-gray-900">Marcar Todas</label>
@@ -714,8 +725,7 @@
                 <h3 class="text-lg font-semibold" id="view-checklist-modal-title">Detalhes do Checklist</h3>
             </div>
             <div id="view-checklist-modal-content" class="p-4 space-y-3 overflow-y-auto">
-                <!-- Checklist details will be rendered here -->
-            </div>
+                </div>
             <div class="p-4 bg-gray-50 border-t flex justify-end">
                 <button id="close-view-checklist-modal-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Fechar</button>
             </div>
@@ -726,17 +736,5 @@
 
 </body>
 </html>
-    <!-- 
+   
 
-        A estrutura de pastas deve ser essa:
-    
-            painel-ti-servidor/
-        ├── public/
-        │   ├── index.html    (usaremos tailwind para estilização)   
-        │   └── app.js         
-        ├── database.js      
-        ├── server.js        
-        └── package.json     
-            
-    
-    -->
