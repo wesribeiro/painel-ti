@@ -1,5 +1,5 @@
 // painel-ti-servidor/public/app.js - VERSÃO COM LÓGICA DE 'PROBLEMS' (PENDÊNCIAS)
-// V2.2 - Corrigido bug de chamada duplicada da API no modal 'resolve-problem'
+// V2.3 - Adicionada funcionalidade de exportar/copiar checklist para GLPI
 
 // --- OBJETO AUXILIAR PARA CHAMADAS DE API (ATUALIZADO PARA JWT) ---
 const api = {
@@ -62,6 +62,7 @@ let state = {
   activeChecklist: null,
   currentChecklistPdvIndex: -1,
   selectedChecklistId: null,
+  detailedChecklistData: null, // <-- NOVO ESTADO (Para exportação)
   dashboardActiveSlide: 0,
   checklistItemToAdd: null,
 };
@@ -262,6 +263,8 @@ function showConfirmationModal(title, message, callback) {
     'label[for="confirmation-password"]'
   );
   if (passwordInput && passwordLabel) {
+    // Para confirmações simples, não pedimos a senha.
+    // A senha só será pedida em uma futura implementação de "ações destrutivas".
     passwordInput.style.display = "none";
     passwordInput.required = false;
     passwordLabel.style.display = "none";
@@ -519,10 +522,8 @@ async function renderPdvDetailsModal() {
           .join("");
 }
 
-// ########### ALTERAÇÃO V2.2 AQUI (Bug da API Duplicada) ###########
 async function renderResolveProblemModal() {
   try {
-    // CORREÇÃO: Removido o '/api' duplicado da chamada
     const problem = await api.get(`/problems/${state.selectedProblemId}`);
 
     if (!problem) {
@@ -546,12 +547,10 @@ async function renderResolveProblemModal() {
     document.getElementById("resolve-problem-form").reset();
     document.getElementById("resolve-problem-error").classList.add("hidden");
   } catch (error) {
-    // Este 'catch' agora é acionado pelo 404 ou 500 real, não pela chamada errada
     showToast("Erro ao carregar dados do problema.", "error");
     showModal("pdv-details");
   }
 }
-// ########### FIM DA ALTERAÇÃO V2.2 ###########
 
 async function renderAddStatusModal() {
   const pdv = await api.get(`/pdvs/${state.selectedPdvId}`);
@@ -559,21 +558,28 @@ async function renderAddStatusModal() {
     "add-status-modal-title"
   ).textContent = `Novo Status para Caixa ${pdv.number}`;
 
-  document.getElementById("status-select").innerHTML = state.allData.statusTypes
+  const statusSelect = document.getElementById("status-select");
+  statusSelect.innerHTML = state.allData.statusTypes
     .filter((s) => s.name !== "Sem status")
     .map((s) => `<option value="${s.id}">${s.name}</option>`)
     .join("");
 
   const itemSelect = document.getElementById("status-item-select");
-  if (itemSelect) {
-    itemSelect.innerHTML =
-      '<option value="">Nenhum / Outro</option>' +
-      state.allData.pdvItems
-        .map((item) => `<option value="${item.id}">${item.name}</option>`)
-        .join("");
-  }
+  itemSelect.innerHTML =
+    '<option value="">Nenhum / Outro</option>' +
+    state.allData.pdvItems
+      .map((item) => `<option value="${item.id}">${item.name}</option>`)
+      .join("");
 
   document.getElementById("add-status-form").reset();
+
+  // Mostra/oculta o seletor de item com base no status selecionado
+  const okStatusId = state.allData.statusTypes.find((s) => s.name === "Ok").id;
+  const itemContainer = document.getElementById(
+    "status-item-selection-container"
+  );
+  itemContainer.style.display =
+    statusSelect.value == okStatusId ? "none" : "block";
 }
 function renderSelectStoreModal() {
   document.getElementById("store-selection-list").innerHTML =
@@ -1154,6 +1160,10 @@ async function renderChecklistPdvModal() {
 
   statusSelect.value = checkData.newStatusId || okStatus.id;
 
+  // Mostra/oculta a lista de itens com base no status
+  const isProblem = statusSelect.value != okStatus.id;
+  itemsContainer.style.display = isProblem ? "block" : "none";
+
   document.getElementById("checklist-prev-pdv-btn").disabled =
     state.currentChecklistPdvIndex === 0;
   document.getElementById("checklist-next-pdv-btn").disabled =
@@ -1269,12 +1279,21 @@ async function renderViewChecklistModal() {
   contentEl.innerHTML = `<p class="text-center text-gray-500">Carregando detalhes...</p>`;
 
   try {
-    const checklist = await api.get(`/checklists/${state.selectedChecklistId}`);
+    // 1. Chamar o novo endpoint que traz tudo
+    const data = await api.get(
+      `/checklists/${state.selectedChecklistId}/details-with-problems`
+    );
+
+    // 2. Salvar os dados no estado para os botões de exportação
+    state.detailedChecklistData = data;
+    const { checklist, openProblems } = data;
+
     if (!checklist) {
       contentEl.innerHTML = `<p class="text-center text-red-500">Checklist não encontrado.</p>`;
       return;
     }
 
+    // 3. Renderizar o cabeçalho do modal
     const store = state.allData.stores.find((s) => s.id === checklist.storeId);
     const formattedDate = new Date(
       checklist.date + "T12:00:00Z"
@@ -1283,8 +1302,9 @@ async function renderViewChecklistModal() {
       "view-checklist-modal-title"
     ).textContent = `Checklist de ${store.name} - ${formattedDate}`;
 
-    contentEl.innerHTML = "";
+    contentEl.innerHTML = ""; // Limpar o "Carregando..."
 
+    // 4. Renderizar os itens do checklist
     const allItemsForStore = getChecklistItemsForStore(store.id);
     const allItemsMap = new Map(
       allItemsForStore.map((item) => [item.id, item.text])
@@ -1329,15 +1349,34 @@ async function renderViewChecklistModal() {
       }
 
       contentEl.innerHTML += `
-                <div class="bg-gray-50 p-3 rounded-md">
-                    <div class="flex justify-between items-center">
-                        <p class="font-bold">Caixa ${pdv.number}</p>
-                        ${resultHtml}
-                    </div>
-                    ${observationHtml}
-                </div>
-            `;
+        <div class="bg-gray-50 p-3 rounded-md">
+            <div class="flex justify-between items-center">
+                <p class="font-bold">Caixa ${pdv.number}</p>
+                ${resultHtml}
+            </div>
+            ${observationHtml}
+        </div>
+      `;
     });
+
+    // 5. Renderizar as pendências abertas
+    contentEl.innerHTML += `<h4 class="font-semibold text-red-700 mt-4 pt-4 border-t">Pendências Atuais da Loja</h4>`;
+    if (openProblems.length === 0) {
+      contentEl.innerHTML += `<p class="text-sm text-gray-500">Nenhuma pendência aberta encontrada para esta loja.</p>`;
+    } else {
+      contentEl.innerHTML += openProblems
+        .map((problem) => {
+          return `
+          <div class="bg-red-50 border-l-4 border-red-500 p-3 rounded-r-md">
+              <p class="font-medium text-red-700">Caixa ${problem.pdvNumber}: ${
+            problem.itemName || "Geral"
+          }</p>
+              <p class="text-sm text-gray-800 mt-1">${problem.title}</p>
+          </div>
+        `;
+        })
+        .join("");
+    }
   } catch (error) {
     contentEl.innerHTML = `<p class="text-center text-red-500">Erro ao carregar detalhes do checklist.</p>`;
   }
@@ -1589,6 +1628,253 @@ function renderApplyChecklistItemModal() {
   }
 }
 
+// --- NOVAS FUNÇÕES DE EXPORTAÇÃO (Início) ---
+
+/**
+ * Gera um HTML formatado para a exportação em PNG.
+ * @param {object} data - O objeto { checklist, openProblems } vindo da API.
+ * @returns {string} - Uma string HTML.
+ */
+function generateChecklistReportHTML(data) {
+  const { checklist, openProblems } = data;
+  const store = state.allData.stores.find((s) => s.id === checklist.storeId);
+  const user = state.allData.users.find(
+    (u) => u.id === checklist.finalizedByUserId
+  );
+  const formattedDate = new Date(
+    checklist.date + "T12:00:00Z"
+  ).toLocaleDateString("pt-BR", { dateStyle: "full" });
+  const allItemsMap = new Map(
+    getChecklistItemsForStore(store.id).map((item) => [item.id, item.text])
+  );
+
+  let html = `<div style="padding: 24px; background-color: white; color: #1f2937; font-family: Inter, sans-serif; border: 1px solid #e5e7eb; border-radius: 8px;">`;
+  html += `<h2 style="font-size: 24px; font-weight: 700; color: #0c0d3d; margin-bottom: 8px;">Relatório de Checklist</h2>`;
+  html += `<p style="font-size: 14px; margin-bottom: 4px;"><strong>Loja:</strong> ${store.name}</p>`;
+  html += `<p style="font-size: 14px; margin-bottom: 4px;"><strong>Data:</strong> ${formattedDate}</p>`;
+  html += `<p style="font-size: 14px; margin-bottom: 24px;"><strong>Técnico:</strong> ${
+    user ? user.name : "N/A"
+  }</p>`;
+
+  // Seção de Itens Verificados
+  html += `<h3 style="font-size: 18px; font-weight: 600; color: #0c0d3d; margin-top: 24px; margin-bottom: 16px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">Itens Verificados</h3>`;
+  checklist.pdvChecks.forEach((check) => {
+    const pdv = state.allData.pdvs.find((p) => p.id === check.pdvId);
+    let resultText = "";
+    let resultColor = "#1f2937";
+
+    switch (check.result) {
+      case "ok":
+        resultText = "Tudo OK";
+        resultColor = "#16a34a";
+        break;
+      case "problem":
+        const status = state.allData.statusTypes.find(
+          (s) => s.id === check.newStatusId
+        );
+        resultText = `Problema (${status.name})`;
+        resultColor = "#dc2626";
+        break;
+      case "busy":
+        resultText = "Caixa Ocupado";
+        resultColor = "#6b7280";
+        break;
+    }
+
+    html += `<div style="background-color: #f9fafb; border-radius: 6px; padding: 12px; margin-bottom: 12px;">`;
+    html += `<div style="display: flex; justify-content: space-between; align-items: center;">`;
+    html += `<p style="font-size: 16px; font-weight: 600;">Caixa ${pdv.number}</p>`;
+    html += `<span style="font-size: 14px; font-weight: 600; color: ${resultColor};">${resultText}</span>`;
+    html += `</div>`;
+
+    if (check.observation) {
+      html += `<p style="font-size: 14px; font-style: italic; color: #4b5563; margin-top: 8px;">"${check.observation}"</p>`;
+    }
+
+    if (check.issues && check.issues.length > 0) {
+      html += `<ul style="font-size: 14px; color: #4b5563; list-style-position: inside; list-style-type: disc; margin-top: 8px; padding-left: 8px;">`;
+      html += check.issues
+        .map((itemId) => `<li>${allItemsMap.get(itemId) || "Item"}</li>`)
+        .join("");
+      html += `</ul>`;
+    }
+    html += `</div>`;
+  });
+
+  // Seção de Pendências Atuais
+  html += `<h3 style="font-size: 18px; font-weight: 600; color: #dc2626; margin-top: 24px; margin-bottom: 16px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">Pendências Atuais da Loja</h3>`;
+  if (openProblems.length === 0) {
+    html += `<p style="font-size: 14px; color: #6b7280;">Nenhuma pendência aberta encontrada para esta loja.</p>`;
+  } else {
+    openProblems.forEach((problem) => {
+      html += `<div style="background-color: #fef2f2; border-left: 4px solid #ef4444; border-radius: 4px; padding: 12px; margin-bottom: 12px;">`;
+      html += `<p style="font-size: 16px; font-weight: 600; color: #b91c1c;">Caixa ${
+        problem.pdvNumber
+      }: ${problem.itemName || "Geral"}</p>`;
+      html += `<p style="font-size: 14px; color: #4b5563; margin-top: 4px;">${problem.title}</p>`;
+      html += `</div>`;
+    });
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+/**
+ * Gera um texto formatado para a área de transferência.
+ * @param {object} data - O objeto { checklist, openProblems } vindo da API.
+ * @returns {string} - Uma string de texto puro.
+ */
+function generateChecklistReportText(data) {
+  const { checklist, openProblems } = data;
+  const store = state.allData.stores.find((s) => s.id === checklist.storeId);
+  const user = state.allData.users.find(
+    (u) => u.id === checklist.finalizedByUserId
+  );
+  const formattedDate = new Date(
+    checklist.date + "T12:00:00Z"
+  ).toLocaleDateString("pt-BR", { dateStyle: "full" });
+  const allItemsMap = new Map(
+    getChecklistItemsForStore(store.id).map((item) => [item.id, item.text])
+  );
+
+  let text = `RELATÓRIO DE CHECKLIST\n`;
+  text += `========================================\n`;
+  text += `Loja: ${store.name}\n`;
+  text += `Data: ${formattedDate}\n`;
+  text += `Técnico: ${user ? user.name : "N/A"}\n`;
+  text += `\n`;
+
+  // Seção de Itens Verificados
+  text += `ITENS VERIFICADOS\n`;
+  text += `----------------------------------------\n`;
+  checklist.pdvChecks.forEach((check) => {
+    const pdv = state.allData.pdvs.find((p) => p.id === check.pdvId);
+    let resultText = "";
+
+    switch (check.result) {
+      case "ok":
+        resultText = "Tudo OK";
+        break;
+      case "problem":
+        const status = state.allData.statusTypes.find(
+          (s) => s.id === check.newStatusId
+        );
+        resultText = `Problema (${status.name})`;
+        break;
+      case "busy":
+        resultText = "Caixa Ocupado";
+        break;
+    }
+
+    text += `* Caixa ${pdv.number}: ${resultText}\n`;
+
+    if (check.observation) {
+      text += `  Obs: "${check.observation}"\n`;
+    }
+
+    if (check.issues && check.issues.length > 0) {
+      text += check.issues
+        .map((itemId) => `  - Item: ${allItemsMap.get(itemId) || "Item"}\n`)
+        .join("");
+    }
+    text += `\n`;
+  });
+
+  // Seção de Pendências Atuais
+  text += `\nPENDÊNCIAS ATUAIS DA LOJA\n`;
+  text += `----------------------------------------\n`;
+  if (openProblems.length === 0) {
+    text += `Nenhuma pendência aberta encontrada para esta loja.\n`;
+  } else {
+    openProblems.forEach((problem) => {
+      text += `* (Caixa ${problem.pdvNumber}) ${problem.itemName || "Geral"}: ${
+        problem.title
+      }\n`;
+    });
+  }
+
+  return text;
+}
+
+/**
+ * Manipulador para o botão "Copiar Texto".
+ */
+async function handleCopyChecklistText() {
+  if (!state.detailedChecklistData) {
+    showToast("Dados do checklist não carregados.", "error");
+    return;
+  }
+
+  const reportText = generateChecklistReportText(state.detailedChecklistData);
+
+  try {
+    await navigator.clipboard.writeText(reportText);
+    showToast("Texto copiado para a área de transferência!", "success");
+  } catch (err) {
+    console.error("Falha ao copiar texto: ", err);
+    showToast(
+      "Falha ao copiar. Verifique as permissões do navegador.",
+      "error"
+    );
+  }
+}
+
+/**
+ * Manipulador para o botão "Baixar PNG".
+ */
+async function handleDownloadChecklistPNG() {
+  if (!state.detailedChecklistData) {
+    showToast("Dados do checklist não carregados.", "error");
+    return;
+  }
+
+  const exportContentEl = document.getElementById("export-content");
+  const exportContainerEl = document.getElementById("export-container");
+  if (
+    !exportContentEl ||
+    !exportContainerEl ||
+    typeof html2canvas !== "function"
+  ) {
+    showToast("Erro ao carregar recurso de exportação.", "error");
+    return;
+  }
+
+  // 1. Gerar o HTML
+  const reportHTML = generateChecklistReportHTML(state.detailedChecklistData);
+  exportContentEl.innerHTML = reportHTML;
+
+  showToast("Gerando imagem, aguarde...", "info");
+
+  try {
+    // 2. Usar html2canvas para capturar o container
+    const canvas = await html2canvas(exportContainerEl, {
+      scale: 2, // Aumenta a resolução
+      useCORS: true,
+      logging: false,
+    });
+
+    // 3. Criar e acionar o link de download
+    const link = document.createElement("a");
+    const date = state.detailedChecklistData.checklist.date;
+    const storeName = state.allData.stores
+      .find((s) => s.id === state.detailedChecklistData.checklist.storeId)
+      .name.replace(" ", "-");
+    link.download = `Checklist-${storeName}-${date}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+
+    // 4. Limpar o container de exportação
+    exportContentEl.innerHTML = "";
+  } catch (err) {
+    console.error("Falha ao gerar PNG:", err);
+    showToast("Falha ao gerar a imagem.", "error");
+    exportContentEl.innerHTML = "";
+  }
+}
+
+// --- NOVAS FUNÇÕES DE EXPORTAÇÃO (Fim) ---
+
 function setupAllEventListeners() {
   // --- NAVEGAÇÃO GERAL E MENU LATERAL ---
   document
@@ -1770,22 +2056,6 @@ function setupAllEventListeners() {
           // O erro já é exibido pelo helper da API
         }
       };
-
-      document
-        .getElementById("pdv-log-store-filter")
-        .addEventListener("change", () => {
-          state.showFullPdvLogs = false;
-          renderPdvLogsScreen();
-        });
-
-      document
-        .getElementById("pdv-logs-list")
-        .addEventListener("click", (e) => {
-          if (e.target.id === "show-full-pdv-logs-btn") {
-            state.showFullPdvLogs = true;
-            renderPdvLogsScreen();
-          }
-        });
 
       showConfirmationModal(
         "Adicionar Item Padrão",
@@ -1981,45 +2251,46 @@ function setupAllEventListeners() {
       await showModal(null);
     });
 
+  document.getElementById("status-select").addEventListener("change", (e) => {
+    const okStatusId = state.allData.statusTypes.find(
+      (s) => s.name === "Ok"
+    ).id;
+    const itemContainer = document.getElementById(
+      "status-item-selection-container"
+    );
+    itemContainer.style.display =
+      e.target.value == okStatusId ? "none" : "block";
+  });
+
   document
     .getElementById("add-status-form")
     .addEventListener("submit", async (e) => {
       e.preventDefault();
       const statusId = parseInt(document.getElementById("status-select").value);
       const description = document.getElementById("status-description").value;
-      // Pega o valor como string para verificar se está vazio ('')
       const itemIdValue = document.getElementById("status-item-select").value;
+      const itemId = itemIdValue ? parseInt(itemIdValue) : null;
 
-      // --- INÍCIO DA VALIDAÇÃO ---
       const okStatus = state.allData.statusTypes.find((s) => s.name === "Ok");
-      if (!okStatus) {
-        // Fallback caso o estado ainda não esteja pronto (improvável)
-        showToast("Erro: Dados de status não carregados.", "error");
+
+      // Validação: Se o status NÃO for 'Ok', o itemId é obrigatório
+      if (statusId !== okStatus.id && !itemId) {
+        showToast(
+          "Para status de problema, o componente é obrigatório.",
+          "error"
+        );
         return;
       }
 
-      // Se o status NÃO for OK, e o item (componente) for NULO (string vazia, "Nenhum / Outro")
-      if (statusId !== okStatus.id && !itemIdValue) {
-        showToast("Por favor, selecione o componente com problema.", "error");
-        return; // Para a submissão
-      }
-      // --- FIM DA VALIDAÇÃO ---
-
-      const itemId = itemIdValue ? parseInt(itemIdValue) : null;
-
       try {
-        // A API /api/pdvs/:id/status-history agora é autenticada
         await api.post(`/pdvs/${state.selectedPdvId}/status-history`, {
           statusId,
           description,
           itemId,
-          // techId é pego automaticamente pelo servidor via token
         });
 
-        // Atualiza o modal de detalhes (para mostrar a nova pendência/histórico)
         await showModal("pdv-details");
-        // Atualiza a tela principal (para mostrar o novo status geral do PDV)
-        await renderPdvScreen();
+        await renderPdvScreen(); // Atualiza a lista principal
         showToast("Status salvo com sucesso!");
       } catch (error) {
         showToast("Falha ao salvar status.", "error");
@@ -2181,7 +2452,7 @@ function setupAllEventListeners() {
     const name = document.getElementById("new-role-name").value.trim();
     if (!name) return;
     const action = async () => {
-      await api.post("/roles", { name });
+      await api.post("/roles", { name }); // Esta API não existe no server.js
       await logAction(`Criou o cargo "${name}".`);
       await showScreen("admin-roles");
       showToast("Cargo criado!");
@@ -2206,7 +2477,7 @@ function setupAllEventListeners() {
       newPermissions.editPdvStatus = e.target.querySelector(
         "#perm-editPdvStatus"
       ).value;
-      await api.put(`/roles/${roleId}`, { permissions: newPermissions });
+      await api.put(`/roles/${roleId}`, { permissions: newPermissions }); // Esta API não existe no server.js
       await logAction(`Alterou as permissões do cargo "${role.name}".`);
       await showScreen("admin-roles");
       showToast("Permissões salvas!");
@@ -2241,6 +2512,7 @@ function setupAllEventListeners() {
       const checklistId = parseInt(target.dataset.checklistid);
       if (checklistId) {
         state.selectedChecklistId = checklistId;
+        state.detailedChecklistData = null; // Limpa dados antigos
         await showModal("view-checklist");
       }
       return;
@@ -2316,18 +2588,10 @@ function setupAllEventListeners() {
 
     // Ações de Status
     else if (target.matches(".remove-status-btn")) {
-      const statusId = parseInt(statusid);
-      const status = state.allData.statusTypes.find((s) => s.id === statusId);
-      const action = async () => {
-        await api.delete(`/status-types/${statusId}`); // <-- ESTA ROTA PRECISA EXISTIR NO SERVER.JS (Não estava no plano, mas é necessária)
-        await logAction(`Removeu o status "${status.name}".`);
-        await showScreen("admin-status");
-        showToast("Status removido!");
-      };
-      showConfirmationModal(
-        "Remover Status",
-        `Remover o status "${status.name}"?`,
-        action
+      // Esta API não existe no server.js, vai falhar
+      showToast(
+        "Função (remover status) não implementada no servidor.",
+        "error"
       );
     }
 
@@ -2336,18 +2600,10 @@ function setupAllEventListeners() {
       state.selectedRoleId = parseInt(roleid);
       await showModal("edit-role");
     } else if (target.matches(".remove-role-btn")) {
-      const roleId = parseInt(roleid);
-      const role = state.allData.roles.find((r) => r.id === roleId);
-      const action = async () => {
-        await api.delete(`/roles/${roleId}`); // <-- ESTA ROTA PRECISA EXISTIR NO SERVER.JS (Não estava no plano, mas é necessária)
-        await logAction(`Removeu o cargo "${role.name}".`);
-        await showScreen("admin-roles");
-        showToast("Cargo removido!");
-      };
-      showConfirmationModal(
-        "Remover Cargo",
-        `Remover o cargo "${role.name}"?`,
-        action
+      // Esta API não existe no server.js, vai falhar
+      showToast(
+        "Função (remover cargo) não implementada no servidor.",
+        "error"
       );
     }
 
@@ -2400,6 +2656,16 @@ function setupAllEventListeners() {
     });
 
   document
+    .getElementById("checklist-new-status")
+    .addEventListener("change", (e) => {
+      const okStatus = state.allData.statusTypes.find((s) => s.name === "Ok");
+      const isProblem = e.target.value != okStatus.id;
+      document.getElementById("checklist-pdv-items").style.display = isProblem
+        ? "block"
+        : "none";
+    });
+
+  document
     .getElementById("save-checklist-btn")
     .addEventListener("click", async () => {
       try {
@@ -2439,6 +2705,14 @@ function setupAllEventListeners() {
         action
       );
     });
+
+  // --- OUVINTES DOS NOVOS BOTÕES DE EXPORTAÇÃO ---
+  document
+    .getElementById("copy-checklist-text-btn")
+    .addEventListener("click", handleCopyChecklistText);
+  document
+    .getElementById("download-checklist-png-btn")
+    .addEventListener("click", handleDownloadChecklistPNG);
 }
 
 document.addEventListener("DOMContentLoaded", async () => {

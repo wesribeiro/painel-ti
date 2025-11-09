@@ -1,5 +1,6 @@
 // painel-ti-servidor/server.js
-// VERSÃO ATUALIZADA (V2.2)
+// VERSÃO ATUALIZADA (V2.3)
+// - Adicionado endpoint /api/checklists/:id/details-with-problems
 // - Corrigido nome da coluna 'solutionNotes' para 'resolution_notes' no endpoint de resolve.
 
 const express = require("express");
@@ -861,6 +862,67 @@ app.get("/api/checklists/:id", async (req, res) => {
     });
   }
 });
+
+// --- NOVO ENDPOINT DE EXPORTAÇÃO (Início) ---
+app.get(
+  "/api/checklists/:id/details-with-problems",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const db = await dbPromise;
+
+      // 1. Busca o checklist
+      const checklist = await db.get("SELECT * FROM checklists WHERE id = ?", [
+        id,
+      ]);
+
+      if (!checklist) {
+        return res.status(404).json({ message: "Checklist não encontrado." });
+      }
+
+      // 2. Parseia os dados do checklist
+      if (checklist.pdvChecks) {
+        checklist.pdvChecks = JSON.parse(checklist.pdvChecks);
+      } else {
+        checklist.pdvChecks = [];
+      }
+
+      // 3. Extrai os IDs dos PDVs do checklist
+      const pdvIds = checklist.pdvChecks.map((pc) => pc.pdvId);
+
+      let openProblems = [];
+      if (pdvIds.length > 0) {
+        // 4. Busca todas as pendências abertas para esses PDVs
+        const placeholders = pdvIds.map(() => "?").join(",");
+        openProblems = await db.all(
+          `
+          SELECT 
+            p.id, p.pdv_id, p.title, p.created_at, p.status, 
+            pi.name as itemName, 
+            pdv.number as pdvNumber
+          FROM problems p
+          LEFT JOIN pdvItems pi ON p.item_id = pi.id
+          LEFT JOIN pdvs pdv ON p.pdv_id = pdv.id
+          WHERE p.pdv_id IN (${placeholders}) 
+            AND p.status != 'Resolvido'
+          ORDER BY CAST(pdv.number AS INTEGER), p.created_at DESC
+        `,
+          pdvIds
+        );
+      }
+
+      // 5. Retorna os dados combinados
+      res.json({ checklist, openProblems });
+    } catch (e) {
+      res.status(500).json({
+        message: "Erro ao buscar detalhes do checklist com problemas.",
+        error: e.message,
+      });
+    }
+  }
+);
+// --- NOVO ENDPOINT DE EXPORTAÇÃO (Fim) ---
 
 // --- ROTAS DE LOGS ---
 app.post("/api/logs/admin", async (req, res) => {

@@ -1,740 +1,1762 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Painel TI - Rede Nilo</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="manifest" href="manifest.json">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
+      integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tYHuRgEXEBOEJIOctUjspyqrjL2+VMFGkaK9OkA=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+    <link rel="manifest" href="manifest.json" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <style>
+      body {
+        font-family: "Inter", sans-serif;
+        overflow-x: hidden;
+      }
+      main > section {
+        min-height: 100vh;
+      }
+      @media (min-width: 1024px) {
+        /* Apenas em telas de desktop (lg) */
         body {
-            font-family: 'Inter', sans-serif;
-            overflow-x: hidden;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 100vh;
+        }
+        main#app-container {
+          width: 100%;
+          max-width: 1024px;
+          height: 95vh;
+          max-height: 900px;
+          border-radius: 0.5rem;
+          overflow: hidden;
+          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+            0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
         main > section {
-            min-height: 100vh;
+          min-height: initial;
+          height: 100%;
         }
-        @media (min-width: 1024px) { /* Apenas em telas de desktop (lg) */
-            body {
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                min-height: 100vh;
-            }
-            main#app-container {
-                width: 100%;
-                max-width: 1024px;
-                height: 95vh;
-                max-height: 900px;
-                border-radius: 0.5rem;
-                overflow: hidden;
-                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            }
-             main > section {
-                min-height: initial;
-                height: 100%;
-            }
-        }
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #555; }
-        
-        .loader {
-            border-top-color: #3498db;
-            -webkit-animation: spinner 1.5s linear infinite;
-            animation: spinner 1.5s linear infinite;
-        }
+      }
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #555;
+      }
 
-        @-webkit-keyframes spinner {
-            0% { -webkit-transform: rotate(0deg); }
-            100% { -webkit-transform: rotate(360deg); }
-        }
+      .loader {
+        border-top-color: #3498db;
+        -webkit-animation: spinner 1.5s linear infinite;
+        animation: spinner 1.5s linear infinite;
+      }
 
-        @keyframes spinner {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+      @-webkit-keyframes spinner {
+        0% {
+          -webkit-transform: rotate(0deg);
         }
+        100% {
+          -webkit-transform: rotate(360deg);
+        }
+      }
 
-        /* --- Estilos do Dashboard Slider --- */
-        #dashboard-container {
-            position: relative;
-            overflow: hidden;
-            border-radius: 0.5rem;
-            cursor: grab;
-            user-select: none; /* Impede a seleção de texto durante o arrasto */
+      @keyframes spinner {
+        0% {
+          transform: rotate(0deg);
         }
-        #dashboard-container:active {
-            cursor: grabbing;
+        100% {
+          transform: rotate(360deg);
         }
-        .dashboard-slider-wrapper {
-            display: flex;
-        }
-        .dashboard-card {
-            flex: 0 0 100%;
-            width: 100%;
-            box-sizing: border-box;
-            min-height: 180px; /* Altura mínima para os cards */
-        }
-        .dashboard-dots {
-            position: absolute;
-            bottom: 0.75rem;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 0.5rem;
-        }
-        .dashboard-dot {
-            width: 0.5rem;
-            height: 0.5rem;
-            border-radius: 9999px;
-            background-color: rgba(255, 255, 255, 0.4);
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        .dashboard-dot.active {
-            background-color: white;
-        }
+      }
 
+      /* --- Estilos do Dashboard Slider --- */
+      #dashboard-container {
+        position: relative;
+        overflow: hidden;
+        border-radius: 0.5rem;
+        cursor: grab;
+        user-select: none; /* Impede a seleção de texto durante o arrasto */
+      }
+      #dashboard-container:active {
+        cursor: grabbing;
+      }
+      .dashboard-slider-wrapper {
+        display: flex;
+      }
+      .dashboard-card {
+        flex: 0 0 100%;
+        width: 100%;
+        box-sizing: border-box;
+        min-height: 180px; /* Altura mínima para os cards */
+      }
+      .dashboard-dots {
+        position: absolute;
+        bottom: 0.75rem;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 0.5rem;
+      }
+      .dashboard-dot {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 9999px;
+        background-color: rgba(255, 255, 255, 0.4);
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+      .dashboard-dot.active {
+        background-color: white;
+      }
     </style>
-</head>
-<body class="bg-gray-100 text-gray-800">
-
-    <section id="loading-screen" class="fixed inset-0 bg-[#0c0d3d] flex flex-col justify-center items-center z-50">        
-        <img src="/assets/logo-ti.png" alt="Logo TI - Rede Nilo" class="h-[100px] w-auto  mb-4 logo-pulse">
-        <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
+  </head>
+  <body class="bg-gray-100 text-gray-800">
+    <section
+      id="loading-screen"
+      class="fixed inset-0 bg-[#0c0d3d] flex flex-col justify-center items-center z-50"
+    >
+      <img
+        src="/assets/logo-ti.png"
+        alt="Logo TI - Rede Nilo"
+        class="h-[100px] w-auto mb-4 logo-pulse"
+      />
+      <div
+        class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"
+      ></div>
     </section>
 
-
-
-    <div id="menu-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden"></div>
-    <div id="side-menu" class="fixed top-0 left-0 h-full w-2/3 max-w-xs bg-[#0c0d3d] text-white z-40 transform -translate-x-full transition-transform duration-300 ease-in-out">
-        <div class="p-4">
-            <div class="flex justify-between items-center mb-6">
-                <div>
-                    <p class="font-bold text-lg" id="side-menu-user-name"></p>
-                    <p class="text-sm text-gray-400" id="side-menu-user-role"></p>
-                </div>
-                <button id="close-menu-btn" class="p-2 rounded-full hover:bg-white/10">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-            </div>
-            <nav class="flex flex-col space-y-2">
-                <a href="#" id="main-panel-btn" class="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors">Painel PDV</a>
-                <a href="#" id="change-store-btn" class="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors">Mudar Loja</a>
-                <a href="#" id="admin-panel-btn" class="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors">Administração</a>
-                <a href="#" id="logout-btn" class="block px-4 py-3 rounded-md text-red-400 hover:bg-white/10 transition-colors">Sair</a>
-            </nav>
+    <div
+      id="menu-overlay"
+      class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden"
+    ></div>
+    <div
+      id="side-menu"
+      class="fixed top-0 left-0 h-full w-2/3 max-w-xs bg-[#0c0d3d] text-white z-40 transform -translate-x-full transition-transform duration-300 ease-in-out"
+    >
+      <div class="p-4">
+        <div class="flex justify-between items-center mb-6">
+          <div>
+            <p class="font-bold text-lg" id="side-menu-user-name"></p>
+            <p class="text-sm text-gray-400" id="side-menu-user-role"></p>
+          </div>
+          <button
+            id="close-menu-btn"
+            class="p-2 rounded-full hover:bg-white/10"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
         </div>
+        <nav class="flex flex-col space-y-2">
+          <a
+            href="#"
+            id="main-panel-btn"
+            class="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors"
+            >Painel PDV</a
+          >
+          <a
+            href="#"
+            id="change-store-btn"
+            class="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors"
+            >Mudar Loja</a
+          >
+          <a
+            href="#"
+            id="admin-panel-btn"
+            class="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors"
+            >Administração</a
+          >
+          <a
+            href="#"
+            id="logout-btn"
+            class="block px-4 py-3 rounded-md text-red-400 hover:bg-white/10 transition-colors"
+            >Sair</a
+          >
+        </nav>
+      </div>
     </div>
 
-    <div id="toast-container" class="fixed top-5 left-1/2 -translate-x-1/2 z-[100] w-full max-w-sm px-4 space-y-2"></div>
+    <div
+      id="toast-container"
+      class="fixed top-5 left-1/2 -translate-x-1/2 z-[100] w-full max-w-sm px-4 space-y-2"
+    ></div>
 
     <main id="app-container" class="w-full mx-auto min-h-screen bg-white">
-        
-        <section id="login-screen" class="hidden h-full flex flex-col justify-center items-center p-4">
-             <div class="w-full max-w-sm sm:max-w-md">
-                <div class="text-center mb-10">
-                    <h1 class="text-3xl md:text-4xl font-bold text-[#0c0d3d]">Painel T.I.</h1>
-                    <p class="text-gray-500 md:text-lg">Rede Nilo</p>
-                </div>
-                <form id="login-form">
-                    <div class="mb-4">
-                        <label for="username" class="block text-sm font-medium text-gray-700 mb-1">Usuário</label>
-                        <input type="text" id="username" name="username" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#0c0d3d] focus:border-[#0c0d3d]" required>
-                    </div>
-                    <div class="mb-4">
-                        <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
-                        <input type="password" id="password" name="password" placeholder="Deixe em branco no 1º acesso" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#0c0d3d] focus:border-[#0c0d3d]">
-                    </div>
-                    <div class="flex items-center justify-between mb-4">
-                        <div class="flex items-center">
-                            <input id="keep-connected" name="keep-connected" type="checkbox" class="h-4 w-4 text-[#0c0d3d] focus:ring-[#1f2166] border-gray-300 rounded">
-                            <label for="keep-connected" class="ml-2 block text-sm text-gray-900">
-                                Continuar conectado
-                            </label>
-                        </div>
-                    </div>
-                    <button type="submit" class="w-full bg-[#0c0d3d] text-white py-2 px-4 rounded-md hover:bg-[#1f2166] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0c0d3d] transition-colors">Entrar</button>
-                    <p id="login-error" class="text-red-500 text-sm mt-4 text-center hidden">Usuário ou senha inválidos.</p>
-                </form>
-                 <div class="text-center mt-4">
-                    <a href="#" id="change-password-link" class="text-sm text-[#0c0d3d] hover:underline">Esqueci / Alterar minha senha</a>
-                </div>
+      <section
+        id="login-screen"
+        class="hidden h-full flex flex-col justify-center items-center p-4"
+      >
+        <div class="w-full max-w-sm sm:max-w-md">
+          <div class="text-center mb-10">
+            <h1 class="text-3xl md:text-4xl font-bold text-[#0c0d3d]">
+              Painel T.I.
+            </h1>
+            <p class="text-gray-500 md:text-lg">Rede Nilo</p>
+          </div>
+          <form id="login-form">
+            <div class="mb-4">
+              <label
+                for="username"
+                class="block text-sm font-medium text-gray-700 mb-1"
+                >Usuário</label
+              >
+              <input
+                type="text"
+                id="username"
+                name="username"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#0c0d3d] focus:border-[#0c0d3d]"
+                required
+              />
             </div>
-        </section>
-
-        <section id="pdv-screen" class="hidden flex-col h-full">
-            <header class="bg-[#0c0d3d] text-white shadow-md p-4 sticky top-0 z-10 flex items-center justify-between">
-                <button id="open-menu-btn" class="p-2 rounded-full hover:bg-white/10">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
-                </button>
-                <div class="text-right">
-                    <h2 class="text-xl font-bold" id="store-name-header"></h2>
-                    <p class="text-sm text-gray-300" id="tech-name-header"></p>
-                </div>
-            </header>
-            
-            <div class="p-4 flex-grow overflow-y-auto">
-                <div id="dashboard-container" class="mb-6">
-                    </div>
-                <div id="checklist-control-panel" class="mb-4"></div>
-                <div>
-                    <h3 class="text-lg font-semibold mb-3 px-1">PDVs da Loja</h3>
-                    <div id="pdv-list" class="space-y-3"></div>
-                </div>
+            <div class="mb-4">
+              <label
+                for="password"
+                class="block text-sm font-medium text-gray-700 mb-1"
+                >Senha</label
+              >
+              <input
+                type="password"
+                id="password"
+                name="password"
+                placeholder="Deixe em branco no 1º acesso"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#0c0d3d] focus:border-[#0c0d3d]"
+              />
             </div>
-        </section>
-
-        <section id="checklist-screen" class="hidden flex-col h-full">
-            <header class="bg-[#0c0d3d] text-white shadow-md p-4 sticky top-0 z-10 flex items-center justify-between">
-                <div class="flex items-center">
-                    <button id="back-to-pdv-from-checklist-btn" class="p-2 rounded-full hover:bg-white/10">
-                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                    </button>
-                    <h2 class="text-xl font-bold ml-2">Checklist Diário</h2>
-                </div>
-                <div class="flex gap-2">
-                    <button id="save-checklist-btn" class="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 text-sm font-semibold">Salvar</button>
-                    <button id="finalize-checklist-btn" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm font-semibold">Finalizar</button>
-                </div>
-            </header>
-            <div id="checklist-pdv-list" class="p-4 flex-grow overflow-y-auto space-y-3">
-                </div>
-        </section>
-
-        <section id="admin-main-menu-screen" class="hidden flex-col h-full">
-             <header class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center justify-between">
-                <button id="admin-back-to-pdv-btn" class="p-2 rounded-full hover:bg-white/10">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <h2 class="text-xl font-bold">Administração</h2>
-                <div class="w-10"></div> </header>
-            <div id="admin-menu-options" class="p-4 flex-grow overflow-y-auto flex flex-col gap-3">
-                </div>
-        </section>
-        
-        <section id="checklist-history-screen" class="hidden flex-col h-full">
-            <header class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10">
-                <button class="admin-back-to-main-menu-btn mr-4 p-2 rounded-full hover:bg-white/10">
-                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <h2 class="text-xl font-bold">Histórico de Checklists</h2>
-            </header>
-            <div class="p-4">
-                <select id="checklist-history-store-filter" class="w-full p-2 border rounded-md mb-4"></select>
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center">
+                <input
+                  id="keep-connected"
+                  name="keep-connected"
+                  type="checkbox"
+                  class="h-4 w-4 text-[#0c0d3d] focus:ring-[#1f2166] border-gray-300 rounded"
+                />
+                <label
+                  for="keep-connected"
+                  class="ml-2 block text-sm text-gray-900"
+                >
+                  Continuar conectado
+                </label>
+              </div>
             </div>
-            <div id="checklist-history-list" class="px-4 pb-4 flex-grow overflow-y-auto space-y-3">
-                </div>
-        </section>
-
-        <section id="admin-roles-screen" class="hidden flex-col h-full">
-             <header class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10">
-                <button class="admin-back-to-main-menu-btn mr-4 p-2 rounded-full hover:bg-white/10">
-                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <h2 class="text-xl font-bold">Gerenciar Permissões</h2>
-            </header>
-            <div class="p-4 flex-grow overflow-y-auto space-y-6">
-                <div id="admin-roles-list" class="space-y-3"></div>
-                 <form id="add-role-form" class="p-3 border rounded-md bg-gray-50 space-y-3">
-                    <h4 class="font-medium text-lg">Adicionar Novo Cargo</h4>
-                    <input type="text" id="new-role-name" placeholder="Nome do cargo (ex: Suporte N1)" class="w-full px-3 py-2 border rounded-md" required>
-                    <button type="submit" class="w-full bg-[#0c0d3d] text-white px-4 py-2 rounded-md hover:bg-[#1f2166]">Criar Cargo</button>
-                </form>
-            </div>
-        </section>
-
-        <section id="admin-logs-menu-screen" class="hidden flex-col h-full">
-            <header class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10">
-                <button class="admin-back-to-main-menu-btn mr-4 p-2 rounded-full hover:bg-white/10">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <h2 class="text-xl font-bold">Registros e Logs</h2>
-            </header>
-            <div class="p-4 flex-grow overflow-y-auto space-y-4">
-                <div id="goto-admin-logs-btn" class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center cursor-pointer hover:bg-gray-100 transition-colors">
-                    <h3 class="font-semibold text-lg">Ações Administrativas</h3>
-                </div>
-                <div id="goto-pdv-logs-btn" class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center cursor-pointer hover:bg-gray-100 transition-colors">
-                    <h3 class="font-semibold text-lg">Log de PDVs</h3>
-                </div>
-            </div>
-        </section>
-
-        <section id="admin-administrative-logs-screen" class="hidden flex-col h-full">
-            <header class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10">
-                <button class="admin-back-to-logs-menu-btn mr-4 p-2 rounded-full hover:bg-white/10">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <h2 class="text-xl font-bold">Ações Administrativas</h2>
-            </header>
-            <div id="admin-logs-list" class="p-4 flex-grow overflow-y-auto space-y-3">
-            </div>
-        </section>
-
-        <section id="admin-pdv-logs-screen" class="hidden flex-col h-full">
-            <header class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10">
-                <button class="admin-back-to-logs-menu-btn mr-4 p-2 rounded-full hover:bg-white/10">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <h2 class="text-xl font-bold">Log de PDVs</h2>
-            </header>
-            <div class="p-4">
-                <select id="pdv-log-store-filter" class="w-full p-2 border rounded-md mb-4"></select>
-            </div>
-            <div id="pdv-logs-list" class="px-4 pb-4 flex-grow overflow-y-auto space-y-3">
-            </div>
-        </section>
-        
-        <section id="admin-users-screen" class="hidden flex-col h-full">
-            <header class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10">
-                <button class="admin-back-to-main-menu-btn mr-4 p-2 rounded-full hover:bg-white/10">
-                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <h2 class="text-xl font-bold">Gerenciar Usuários</h2>
-            </header>
-            <div class="p-4 flex-grow overflow-y-auto space-y-6">
-                <form id="add-user-form" class="p-3 border rounded-md bg-gray-50 space-y-3">
-                    <h4 class="font-medium text-lg">Adicionar Novo Usuário</h4>
-                    <input type="text" id="new-user-name" placeholder="Nome completo" class="w-full px-3 py-2 border rounded-md" required>
-                    <input type="text" id="new-user-username" placeholder="Usuário (login)" class="w-full px-3 py-2 border rounded-md" required>
-                    <select id="new-user-role" class="w-full px-3 py-2 border rounded-md" required>
-                    </select>
-                    <select id="new-user-store" class="w-full px-3 py-2 border rounded-md"></select>
-                    <button type="submit" class="w-full bg-[#0c0d3d] text-white px-4 py-2 rounded-md hover:bg-[#1f2166]">Adicionar Usuário</button>
-                </form>
-                <div>
-                     <button id="goto-users-list-btn" class="w-full bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Ver Usuários Cadastrados</button>
-                </div>
-            </div>
-        </section>
-
-        <section id="admin-users-list-screen" class="hidden flex-col h-full">
-            <header class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10">
-                <button id="back-to-users-menu-btn" class="mr-4 p-2 rounded-full hover:bg-white/10">
-                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <h2 class="text-xl font-bold">Usuários Cadastrados</h2>
-            </header>
-            <div class="p-4 flex-grow overflow-y-auto">
-                <div id="admin-users-list" class="space-y-2 mb-3"></div>
-            </div>
-        </section>
-
-        <section id="admin-stores-screen" class="hidden flex-col h-full">
-            <header class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10">
-                <button class="admin-back-to-main-menu-btn mr-4 p-2 rounded-full hover:bg-white/10">
-                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <h2 class="text-xl font-bold">Gerenciar Lojas</h2>
-            </header>
-            <div class="p-4 flex-grow overflow-y-auto space-y-6">
-                 <div id="pdv-items-management-container" class="mb-4"></div>
-                <div id="admin-stores-list" class="space-y-2 mb-3"></div>
-                <form id="add-store-form" class="p-3 border rounded-md bg-gray-50 space-y-3">
-                    <h4 class="font-medium text-lg">Adicionar Nova Loja</h4>
-                    <input type="text" id="new-store-name" placeholder="Nome da nova loja" class="w-full px-3 py-2 border rounded-md" required>
-                    <input type="number" id="new-store-pdv-start" placeholder="Nº do 1º PDV (ex: 101)" class="w-full px-3 py-2 border rounded-md" required>
-                    <button type="submit" class="w-full bg-[#0c0d3d] text-white px-4 py-2 rounded-md hover:bg-[#1f2166]">Adicionar Loja</button>
-                </form>
-            </div>
-        </section>
-
-        <section id="admin-pdv-items-screen" class="hidden flex-col h-full">
-            <header class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10">
-                <button id="back-from-pdv-items-btn" class="mr-4 p-2 rounded-full hover:bg-white/10">
-                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <h2 class="text-xl font-bold">Itens de PDV Padrão</h2>
-            </header>
-            <div class="p-4 flex-grow overflow-y-auto space-y-6">
-                <div id="admin-pdv-items-list" class="space-y-2 mb-3"></div>
-                 <form id="add-pdv-item-form" class="p-3 border rounded-md bg-gray-50 space-y-3">
-                    <h4 class="font-medium">Adicionar Novo Item Padrão</h4>
-                    <input type="text" id="new-pdv-item-name" placeholder="Nome do item (ex: Balança)" class="w-full px-3 py-2 border rounded-md" required>
-                    <button type="submit" class="w-full bg-[#0c0d3d] text-white px-4 py-2 rounded-md hover:bg-[#1f2166]">Adicionar Item</button>
-                </form>
-            </div>
-        </section>
-
-        <section id="admin-status-screen" class="hidden flex-col h-full">
-            <header class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10">
-                <button class="admin-back-to-main-menu-btn mr-4 p-2 rounded-full hover:bg-white/10">
-                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <h2 class="text-xl font-bold">Gerenciar Status</h2>
-            </header>
-            <div class="p-4 flex-grow overflow-y-auto space-y-6">
-                <div id="admin-status-list" class="space-y-2 mb-3"></div>
-                 <form id="add-status-type-form" class="p-3 border rounded-md bg-gray-50 space-y-3">
-                    <h4 class="font-medium">Adicionar Novo Status</h4>
-                    <input type="text" id="new-status-name" placeholder="Nome do status (ex: Em Análise)" class="w-full px-3 py-2 border rounded-md" required>
-                    <select id="new-status-color" class="w-full px-3 py-2 border rounded-md" required>
-                        <option value="" disabled selected>Selecione uma cor</option>
-                        <option value="blue">Azul</option>
-                        <option value="green">Verde</option>
-                        <option value="yellow">Amarelo</option>
-                        <option value="orange">Laranja</option>
-                        <option value="red">Vermelho</option>
-                        <option value="purple">Roxo</option>
-                        <option value="gray">Cinza</option>
-                        <option value="black">Preto</option>
-                    </select>
-                    <button type="submit" class="w-full bg-[#0c0d3d] text-white px-4 py-2 rounded-md hover:bg-[#1f2166]">Adicionar Status</button>
-                </form>
-            </div>
-        </section>
-        </main>
-
-    <div id="pdv-details-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-20 hidden p-4">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
-            <div class="p-4 border-b">
-                <h3 class="text-lg font-semibold" id="modal-pdv-title"></h3>
-                <p class="text-sm">Status Atual: <span class="font-bold" id="modal-pdv-current-status"></span></p>
-            </div>
-            
-            <div class="p-4 flex-grow overflow-y-auto">
-                <div class="mb-4">
-                    <h4 class="font-semibold mb-3">Pendências do Caixa (Últimas 5)</h4>
-                    <div id="modal-pdv-problems-list" class="space-y-2 text-sm">
-                        </div>
-                </div>
-                <div class="mt-4 pt-4 border-t">
-                    <h4 class="font-semibold mb-3">Histórico de Status (Últimos Eventos)</h4>
-                    <div id="modal-pdv-history" class="space-y-3">
-                        </div>
-                </div>
-            </div>
-            <div class="p-4 bg-gray-50 border-t flex flex-wrap gap-2 justify-end">
-                <button id="add-status-btn" class="bg-[#0c0d3d] text-white px-4 py-2 rounded-md hover:bg-[#1f2166] transition-colors">Adicionar Status</button>
-                <button id="close-details-modal-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Voltar</button>
-            </div>
+            <button
+              type="submit"
+              class="w-full bg-[#0c0d3d] text-white py-2 px-4 rounded-md hover:bg-[#1f2166] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0c0d3d] transition-colors"
+            >
+              Entrar
+            </button>
+            <p
+              id="login-error"
+              class="text-red-500 text-sm mt-4 text-center hidden"
+            >
+              Usuário ou senha inválidos.
+            </p>
+          </form>
+          <div class="text-center mt-4">
+            <a
+              href="#"
+              id="change-password-link"
+              class="text-sm text-[#0c0d3d] hover:underline"
+              >Esqueci / Alterar minha senha</a
+            >
+          </div>
         </div>
+      </section>
+
+      <section id="pdv-screen" class="hidden flex-col h-full">
+        <header
+          class="bg-[#0c0d3d] text-white shadow-md p-4 sticky top-0 z-10 flex items-center justify-between"
+        >
+          <button id="open-menu-btn" class="p-2 rounded-full hover:bg-white/10">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 6h16M4 12h16M4 18h16"
+              />
+            </svg>
+          </button>
+          <div class="text-right">
+            <h2 class="text-xl font-bold" id="store-name-header"></h2>
+            <p class="text-sm text-gray-300" id="tech-name-header"></p>
+          </div>
+        </header>
+
+        <div class="p-4 flex-grow overflow-y-auto">
+          <div id="dashboard-container" class="mb-6"></div>
+          <div id="checklist-control-panel" class="mb-4"></div>
+          <div>
+            <h3 class="text-lg font-semibold mb-3 px-1">PDVs da Loja</h3>
+            <div id="pdv-list" class="space-y-3"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="checklist-screen" class="hidden flex-col h-full">
+        <header
+          class="bg-[#0c0d3d] text-white shadow-md p-4 sticky top-0 z-10 flex items-center justify-between"
+        >
+          <div class="flex items-center">
+            <button
+              id="back-to-pdv-from-checklist-btn"
+              class="p-2 rounded-full hover:bg-white/10"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+            </button>
+            <h2 class="text-xl font-bold ml-2">Checklist Diário</h2>
+          </div>
+          <div class="flex gap-2">
+            <button
+              id="save-checklist-btn"
+              class="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 text-sm font-semibold"
+            >
+              Salvar
+            </button>
+            <button
+              id="finalize-checklist-btn"
+              class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm font-semibold"
+            >
+              Finalizar
+            </button>
+          </div>
+        </header>
+        <div
+          id="checklist-pdv-list"
+          class="p-4 flex-grow overflow-y-auto space-y-3"
+        ></div>
+      </section>
+
+      <section id="admin-main-menu-screen" class="hidden flex-col h-full">
+        <header
+          class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center justify-between"
+        >
+          <button
+            id="admin-back-to-pdv-btn"
+            class="p-2 rounded-full hover:bg-white/10"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </button>
+          <h2 class="text-xl font-bold">Administração</h2>
+          <div class="w-10"></div>
+        </header>
+        <div
+          id="admin-menu-options"
+          class="p-4 flex-grow overflow-y-auto flex flex-col gap-3"
+        ></div>
+      </section>
+
+      <section id="checklist-history-screen" class="hidden flex-col h-full">
+        <header
+          class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10"
+        >
+          <button
+            class="admin-back-to-main-menu-btn mr-4 p-2 rounded-full hover:bg-white/10"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </button>
+          <h2 class="text-xl font-bold">Histórico de Checklists</h2>
+        </header>
+        <div class="p-4">
+          <select
+            id="checklist-history-store-filter"
+            class="w-full p-2 border rounded-md mb-4"
+          ></select>
+        </div>
+        <div
+          id="checklist-history-list"
+          class="px-4 pb-4 flex-grow overflow-y-auto space-y-3"
+        ></div>
+      </section>
+
+      <section id="admin-roles-screen" class="hidden flex-col h-full">
+        <header
+          class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10"
+        >
+          <button
+            class="admin-back-to-main-menu-btn mr-4 p-2 rounded-full hover:bg-white/10"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </button>
+          <h2 class="text-xl font-bold">Gerenciar Permissões</h2>
+        </header>
+        <div class="p-4 flex-grow overflow-y-auto space-y-6">
+          <div id="admin-roles-list" class="space-y-3"></div>
+          <form
+            id="add-role-form"
+            class="p-3 border rounded-md bg-gray-50 space-y-3"
+          >
+            <h4 class="font-medium text-lg">Adicionar Novo Cargo</h4>
+            <input
+              type="text"
+              id="new-role-name"
+              placeholder="Nome do cargo (ex: Suporte N1)"
+              class="w-full px-3 py-2 border rounded-md"
+              required
+            />
+            <button
+              type="submit"
+              class="w-full bg-[#0c0d3d] text-white px-4 py-2 rounded-md hover:bg-[#1f2166]"
+            >
+              Criar Cargo
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <section id="admin-logs-menu-screen" class="hidden flex-col h-full">
+        <header
+          class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10"
+        >
+          <button
+            class="admin-back-to-main-menu-btn mr-4 p-2 rounded-full hover:bg-white/10"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </button>
+          <h2 class="text-xl font-bold">Registros e Logs</h2>
+        </header>
+        <div class="p-4 flex-grow overflow-y-auto space-y-4">
+          <div
+            id="goto-admin-logs-btn"
+            class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center cursor-pointer hover:bg-gray-100 transition-colors"
+          >
+            <h3 class="font-semibold text-lg">Ações Administrativas</h3>
+          </div>
+          <div
+            id="goto-pdv-logs-btn"
+            class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center cursor-pointer hover:bg-gray-100 transition-colors"
+          >
+            <h3 class="font-semibold text-lg">Log de PDVs</h3>
+          </div>
+        </div>
+      </section>
+
+      <section
+        id="admin-administrative-logs-screen"
+        class="hidden flex-col h-full"
+      >
+        <header
+          class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10"
+        >
+          <button
+            class="admin-back-to-logs-menu-btn mr-4 p-2 rounded-full hover:bg-white/10"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </button>
+          <h2 class="text-xl font-bold">Ações Administrativas</h2>
+        </header>
+        <div
+          id="admin-logs-list"
+          class="p-4 flex-grow overflow-y-auto space-y-3"
+        ></div>
+      </section>
+
+      <section id="admin-pdv-logs-screen" class="hidden flex-col h-full">
+        <header
+          class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10"
+        >
+          <button
+            class="admin-back-to-logs-menu-btn mr-4 p-2 rounded-full hover:bg-white/10"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </button>
+          <h2 class="text-xl font-bold">Log de PDVs</h2>
+        </header>
+        <div class="p-4">
+          <select
+            id="pdv-log-store-filter"
+            class="w-full p-2 border rounded-md mb-4"
+          ></select>
+        </div>
+        <div
+          id="pdv-logs-list"
+          class="px-4 pb-4 flex-grow overflow-y-auto space-y-3"
+        ></div>
+      </section>
+
+      <section id="admin-users-screen" class="hidden flex-col h-full">
+        <header
+          class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10"
+        >
+          <button
+            class="admin-back-to-main-menu-btn mr-4 p-2 rounded-full hover:bg-white/10"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </button>
+          <h2 class="text-xl font-bold">Gerenciar Usuários</h2>
+        </header>
+        <div class="p-4 flex-grow overflow-y-auto space-y-6">
+          <form
+            id="add-user-form"
+            class="p-3 border rounded-md bg-gray-50 space-y-3"
+          >
+            <h4 class="font-medium text-lg">Adicionar Novo Usuário</h4>
+            <input
+              type="text"
+              id="new-user-name"
+              placeholder="Nome completo"
+              class="w-full px-3 py-2 border rounded-md"
+              required
+            />
+            <input
+              type="text"
+              id="new-user-username"
+              placeholder="Usuário (login)"
+              class="w-full px-3 py-2 border rounded-md"
+              required
+            />
+            <select
+              id="new-user-role"
+              class="w-full px-3 py-2 border rounded-md"
+              required
+            ></select>
+            <select
+              id="new-user-store"
+              class="w-full px-3 py-2 border rounded-md"
+            ></select>
+            <button
+              type="submit"
+              class="w-full bg-[#0c0d3d] text-white px-4 py-2 rounded-md hover:bg-[#1f2166]"
+            >
+              Adicionar Usuário
+            </button>
+          </form>
+          <div>
+            <button
+              id="goto-users-list-btn"
+              class="w-full bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"
+            >
+              Ver Usuários Cadastrados
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section id="admin-users-list-screen" class="hidden flex-col h-full">
+        <header
+          class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10"
+        >
+          <button
+            id="back-to-users-menu-btn"
+            class="mr-4 p-2 rounded-full hover:bg-white/10"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </button>
+          <h2 class="text-xl font-bold">Usuários Cadastrados</h2>
+        </header>
+        <div class="p-4 flex-grow overflow-y-auto">
+          <div id="admin-users-list" class="space-y-2 mb-3"></div>
+        </div>
+      </section>
+
+      <section id="admin-stores-screen" class="hidden flex-col h-full">
+        <header
+          class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10"
+        >
+          <button
+            class="admin-back-to-main-menu-btn mr-4 p-2 rounded-full hover:bg-white/10"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </button>
+          <h2 class="text-xl font-bold">Gerenciar Lojas</h2>
+        </header>
+        <div class="p-4 flex-grow overflow-y-auto space-y-6">
+          <div id="pdv-items-management-container" class="mb-4"></div>
+          <div id="admin-stores-list" class="space-y-2 mb-3"></div>
+          <form
+            id="add-store-form"
+            class="p-3 border rounded-md bg-gray-50 space-y-3"
+          >
+            <h4 class="font-medium text-lg">Adicionar Nova Loja</h4>
+            <input
+              type="text"
+              id="new-store-name"
+              placeholder="Nome da nova loja"
+              class="w-full px-3 py-2 border rounded-md"
+              required
+            />
+            <input
+              type="number"
+              id="new-store-pdv-start"
+              placeholder="Nº do 1º PDV (ex: 101)"
+              class="w-full px-3 py-2 border rounded-md"
+              required
+            />
+            <button
+              type="submit"
+              class="w-full bg-[#0c0d3d] text-white px-4 py-2 rounded-md hover:bg-[#1f2166]"
+            >
+              Adicionar Loja
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <section id="admin-pdv-items-screen" class="hidden flex-col h-full">
+        <header
+          class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10"
+        >
+          <button
+            id="back-from-pdv-items-btn"
+            class="mr-4 p-2 rounded-full hover:bg-white/10"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </button>
+          <h2 class="text-xl font-bold">Itens de PDV Padrão</h2>
+        </header>
+        <div class="p-4 flex-grow overflow-y-auto space-y-6">
+          <div id="admin-pdv-items-list" class="space-y-2 mb-3"></div>
+          <form
+            id="add-pdv-item-form"
+            class="p-3 border rounded-md bg-gray-50 space-y-3"
+          >
+            <h4 class="font-medium">Adicionar Novo Item Padrão</h4>
+            <input
+              type="text"
+              id="new-pdv-item-name"
+              placeholder="Nome do item (ex: Balança)"
+              class="w-full px-3 py-2 border rounded-md"
+              required
+            />
+            <button
+              type="submit"
+              class="w-full bg-[#0c0d3d] text-white px-4 py-2 rounded-md hover:bg-[#1f2166]"
+            >
+              Adicionar Item
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <section id="admin-status-screen" class="hidden flex-col h-full">
+        <header
+          class="bg-[#0c0d3d] text-white shadow-md p-4 flex items-center sticky top-0 z-10"
+        >
+          <button
+            class="admin-back-to-main-menu-btn mr-4 p-2 rounded-full hover:bg-white/10"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </button>
+          <h2 class="text-xl font-bold">Gerenciar Status</h2>
+        </header>
+        <div class="p-4 flex-grow overflow-y-auto space-y-6">
+          <div id="admin-status-list" class="space-y-2 mb-3"></div>
+          <form
+            id="add-status-type-form"
+            class="p-3 border rounded-md bg-gray-50 space-y-3"
+          >
+            <h4 class="font-medium">Adicionar Novo Status</h4>
+            <input
+              type="text"
+              id="new-status-name"
+              placeholder="Nome do status (ex: Em Análise)"
+              class="w-full px-3 py-2 border rounded-md"
+              required
+            />
+            <select
+              id="new-status-color"
+              class="w-full px-3 py-2 border rounded-md"
+              required
+            >
+              <option value="" disabled selected>Selecione uma cor</option>
+              <option value="blue">Azul</option>
+              <option value="green">Verde</option>
+              <option value="yellow">Amarelo</option>
+              <option value="orange">Laranja</option>
+              <option value="red">Vermelho</option>
+              <option value="purple">Roxo</option>
+              <option value="gray">Cinza</option>
+              <option value="black">Preto</option>
+            </select>
+            <button
+              type="submit"
+              class="w-full bg-[#0c0d3d] text-white px-4 py-2 rounded-md hover:bg-[#1f2166]"
+            >
+              Adicionar Status
+            </button>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <div
+      id="export-container"
+      class="fixed -left-[9999px] top-0 p-8 bg-white text-black"
+      style="width: 800px; z-index: -100"
+    >
+      <div id="export-content"></div>
     </div>
 
-    <div id="add-status-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-30 hidden p-4">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
-            <form id="add-status-form">
-                <div class="p-4 border-b"><h3 class="text-lg font-semibold" id="add-status-modal-title">Adicionar novo status</h3></div>
-                <div class="p-4 space-y-4">
-                    <div>
-                        <label for="status-select" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                        <select id="status-select" class="w-full px-3 py-2 border border-gray-300 rounded-md" required></select>
-                    </div>
-                    <div id="status-item-selection-container">
-                        <label for="status-item-select" class="block text-sm font-medium text-gray-700 mb-1">Componente com Problema (Opcional)</label>
-                        <select id="status-item-select" class="w-full px-3 py-2 border border-gray-300 rounded-md"></select>
-                    </div>
-                    <div>
-                        <label for="status-description" class="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
-                        <textarea id="status-description" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Descreva o que foi feito ou o problema encontrado..." required></textarea>
-                    </div>
-                </div>
-                <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
-                    <button type="button" id="cancel-add-status-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
-                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Salvar</button>
-                </div>
+    <div
+      id="pdv-details-modal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-20 hidden p-4"
+    >
+      <div
+        class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col"
+      >
+        <div class="p-4 border-b">
+          <h3 class="text-lg font-semibold" id="modal-pdv-title"></h3>
+          <p class="text-sm">
+            Status Atual:
+            <span class="font-bold" id="modal-pdv-current-status"></span>
+          </p>
+        </div>
+
+        <div class="p-4 flex-grow overflow-y-auto">
+          <div class="mb-4">
+            <h4 class="font-semibold mb-3">Pendências do Caixa (Últimas 5)</h4>
+            <div id="modal-pdv-problems-list" class="space-y-2 text-sm"></div>
+          </div>
+          <div class="mt-4 pt-4 border-t">
+            <h4 class="font-semibold mb-3">
+              Histórico de Status (Últimos Eventos)
+            </h4>
+            <div id="modal-pdv-history" class="space-y-3"></div>
+          </div>
+        </div>
+        <div class="p-4 bg-gray-50 border-t flex flex-wrap gap-2 justify-end">
+          <button
+            id="add-status-btn"
+            class="bg-[#0c0d3d] text-white px-4 py-2 rounded-md hover:bg-[#1f2166] transition-colors"
+          >
+            Adicionar Status
+          </button>
+          <button
+            id="close-details-modal-btn"
+            class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"
+          >
+            Voltar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="add-status-modal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-30 hidden p-4"
+    >
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
+        <form id="add-status-form">
+          <div class="p-4 border-b">
+            <h3 class="text-lg font-semibold" id="add-status-modal-title">
+              Adicionar novo status
+            </h3>
+          </div>
+          <div class="p-4 space-y-4">
+            <div>
+              <label
+                for="status-select"
+                class="block text-sm font-medium text-gray-700 mb-1"
+                >Status</label
+              >
+              <select
+                id="status-select"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                required
+              ></select>
+            </div>
+            <div id="status-item-selection-container">
+              <label
+                for="status-item-select"
+                class="block text-sm font-medium text-gray-700 mb-1"
+                >Componente com Problema (Obrigatório se não for 'Ok')</label
+              >
+              <select
+                id="status-item-select"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md"
+              ></select>
+            </div>
+            <div>
+              <label
+                for="status-description"
+                class="block text-sm font-medium text-gray-700 mb-1"
+                >Descrição</label
+              >
+              <textarea
+                id="status-description"
+                rows="4"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                placeholder="Descreva o que foi feito ou o problema encontrado..."
+                required
+              ></textarea>
+            </div>
+          </div>
+          <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
+            <button
+              type="button"
+              id="cancel-add-status-btn"
+              class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+            >
+              Salvar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div
+      id="select-store-modal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-30 hidden p-4"
+    >
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-sm">
+        <div class="p-4 border-b">
+          <h3 class="text-lg font-semibold">Selecionar Loja</h3>
+        </div>
+        <div
+          id="store-selection-list"
+          class="p-4 max-h-64 overflow-y-auto"
+        ></div>
+        <div class="p-4 bg-gray-50 border-t flex justify-end">
+          <button
+            id="cancel-store-selection-btn"
+            class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="manage-store-modal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-40 hidden p-4"
+    >
+      <div
+        class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col"
+      >
+        <div class="p-4 border-b flex justify-between items-center">
+          <h3 class="text-lg font-semibold" id="manage-store-modal-title"></h3>
+          <button
+            id="goto-checklist-config-btn"
+            class="text-sm bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700"
+          >
+            Config. Checklist
+          </button>
+        </div>
+        <div class="p-4 flex-grow overflow-y-auto">
+          <h4 class="font-semibold mb-3">PDVs na Loja</h4>
+          <div id="manage-store-pdv-list" class="space-y-2 mb-4"></div>
+          <form
+            id="add-pdv-to-store-form"
+            class="p-3 border rounded-md bg-gray-50 space-y-3"
+          >
+            <h4 class="font-medium">Criação Rápida de PDVs</h4>
+            <div class="flex gap-2">
+              <input
+                type="text"
+                id="new-pdv-start-number"
+                placeholder="Nome/Nº (ex: 116)"
+                class="w-2/3 px-3 py-2 border rounded-md"
+                required
+              />
+              <input
+                type="number"
+                id="new-pdv-quantity"
+                value="3"
+                min="1"
+                max="50"
+                class="w-1/3 px-3 py-2 border rounded-md"
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              class="w-full bg-[#0c0d3d] text-white px-4 py-2 rounded-md hover:bg-[#1f2166]"
+            >
+              Criar PDV(s)
+            </button>
+          </form>
+        </div>
+        <div class="p-4 bg-gray-50 border-t flex justify-end">
+          <button
+            id="close-manage-store-modal-btn"
+            class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="edit-user-modal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-40 hidden p-4"
+    >
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
+        <form id="edit-user-form">
+          <input type="hidden" id="edit-user-id" />
+          <div class="p-4 border-b">
+            <h3 class="text-lg font-semibold">Editar Usuário</h3>
+          </div>
+          <div class="p-4 space-y-4">
+            <div>
+              <label
+                for="edit-user-name"
+                class="block text-sm font-medium text-gray-700 mb-1"
+                >Nome Completo</label
+              >
+              <input
+                type="text"
+                id="edit-user-name"
+                class="w-full px-3 py-2 border rounded-md"
+                required
+              />
+            </div>
+            <div>
+              <label
+                for="edit-user-username"
+                class="block text-sm font-medium text-gray-700 mb-1"
+                >Usuário (login)</label
+              >
+              <input
+                type="text"
+                id="edit-user-username"
+                class="w-full px-3 py-2 border rounded-md"
+                required
+              />
+            </div>
+            <div>
+              <label
+                for="edit-user-role"
+                class="block text-sm font-medium text-gray-700 mb-1"
+                >Cargo</label
+              >
+              <select
+                id="edit-user-role"
+                class="w-full px-3 py-2 border rounded-md"
+                required
+              ></select>
+            </div>
+            <div>
+              <label
+                for="edit-user-store"
+                class="block text-sm font-medium text-gray-700 mb-1"
+                >Loja Padrão</label
+              >
+              <select
+                id="edit-user-store"
+                class="w-full px-3 py-2 border rounded-md"
+              ></select>
+            </div>
+          </div>
+          <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
+            <button
+              type="button"
+              id="cancel-edit-user-btn"
+              class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+            >
+              Salvar Alterações
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div
+      id="edit-store-modal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-40 hidden p-4"
+    >
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
+        <form id="edit-store-form">
+          <input type="hidden" id="edit-store-id" />
+          <div class="p-4 border-b">
+            <h3 class="text-lg font-semibold">Editar Loja</h3>
+          </div>
+          <div class="p-4 space-y-4">
+            <div>
+              <label
+                for="edit-store-name"
+                class="block text-sm font-medium text-gray-700 mb-1"
+                >Nome da Loja</label
+              >
+              <input
+                type="text"
+                id="edit-store-name"
+                class="w-full px-3 py-2 border rounded-md"
+                required
+              />
+            </div>
+            <div>
+              <label
+                for="edit-store-pdv-start"
+                class="block text-sm font-medium text-gray-700 mb-1"
+                >Nº do 1º PDV</label
+              >
+              <input
+                type="number"
+                id="edit-store-pdv-start"
+                class="w-full px-3 py-2 border rounded-md"
+                required
+              />
+            </div>
+          </div>
+          <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
+            <button
+              type="button"
+              id="cancel-edit-store-btn"
+              class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+            >
+              Salvar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div
+      id="password-change-modal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-40 hidden p-4"
+    >
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
+        <form id="password-change-form">
+          <div class="p-4 border-b">
+            <h3 class="text-lg font-semibold" id="password-modal-title"></h3>
+          </div>
+          <div class="p-4 space-y-4">
+            <div>
+              <label
+                for="password-change-username"
+                class="block text-sm font-medium text-gray-700 mb-1"
+                >Usuário (login)</label
+              >
+              <input
+                type="text"
+                id="password-change-username"
+                class="w-full px-3 py-2 border rounded-md bg-gray-100"
+                readonly
+              />
+            </div>
+            <div id="current-password-wrapper">
+              <label
+                for="current-password"
+                class="block text-sm font-medium text-gray-700 mb-1"
+                >Senha Atual</label
+              >
+              <input
+                type="password"
+                id="current-password"
+                class="w-full px-3 py-2 border rounded-md"
+              />
+            </div>
+            <div>
+              <label
+                for="new-password"
+                class="block text-sm font-medium text-gray-700 mb-1"
+                >Nova Senha</label
+              >
+              <input
+                type="password"
+                id="new-password"
+                class="w-full px-3 py-2 border rounded-md"
+                required
+              />
+            </div>
+            <div>
+              <label
+                for="confirm-new-password"
+                class="block text-sm font-medium text-gray-700 mb-1"
+                >Confirme a Nova Senha</label
+              >
+              <input
+                type="password"
+                id="confirm-new-password"
+                class="w-full px-3 py-2 border rounded-md"
+                required
+              />
+            </div>
+            <p
+              id="password-change-error"
+              class="text-red-500 text-sm text-center hidden"
+            ></p>
+          </div>
+          <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
+            <button
+              type="button"
+              id="cancel-password-change-btn"
+              class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+            >
+              Definir Senha
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div
+      id="edit-role-modal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-40 hidden p-4"
+    >
+      <div
+        class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col"
+      >
+        <form id="edit-role-form">
+          <input type="hidden" id="edit-role-id" />
+          <div class="p-4 border-b">
+            <h3 class="text-lg font-semibold" id="edit-role-modal-title"></h3>
+          </div>
+          <div
+            id="edit-role-permissions"
+            class="p-4 space-y-3 overflow-y-auto"
+          ></div>
+          <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
+            <button
+              type="button"
+              id="cancel-edit-role-btn"
+              class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+            >
+              Salvar Permissões
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div
+      id="confirmation-modal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden p-4"
+    >
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
+        <form id="confirmation-form">
+          <div class="p-4 border-b">
+            <h3 class="text-lg font-semibold" id="confirmation-modal-title">
+              Confirmar Ação
+            </h3>
+          </div>
+          <div class="p-4 space-y-4">
+            <p id="confirmation-modal-message"></p>
+            <div>
+              <label
+                for="confirmation-password"
+                class="block text-sm font-medium text-gray-700 mb-1"
+                >Sua Senha</label
+              >
+              <input
+                type="password"
+                id="confirmation-password"
+                class="w-full px-3 py-2 border rounded-md"
+                required
+              />
+              <p
+                id="confirmation-error"
+                class="text-red-500 text-sm mt-2 hidden"
+              >
+                Senha incorreta.
+              </p>
+            </div>
+          </div>
+          <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
+            <button
+              type="button"
+              id="cancel-confirmation-btn"
+              class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              id="confirm-action-btn"
+              class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+            >
+              Confirmar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div
+      id="resolve-problem-modal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden p-4"
+    >
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
+        <form id="resolve-problem-form">
+          <input type="hidden" id="resolve-problem-id" />
+          <div class="p-4 border-b">
+            <h3 class="text-lg font-semibold" id="resolve-problem-modal-title">
+              Solucionar Pendência
+            </h3>
+          </div>
+          <div class="p-4 space-y-4">
+            <div class="p-3 bg-gray-50 rounded-md text-sm space-y-1">
+              <p>
+                <strong>Problema:</strong>
+                <span id="resolve-problem-title" class="text-gray-800"></span>
+              </p>
+              <p class="text-xs text-gray-600">
+                <strong>Reportado por:</strong>
+                <span id="resolve-problem-reporter"></span> em
+                <span id="resolve-problem-date"></span>
+              </p>
+              <p class="text-xs text-gray-600">
+                <strong>Componente:</strong>
+                <span id="resolve-problem-item"></span>
+              </p>
+            </div>
+            <div>
+              <label
+                for="resolve-problem-notes"
+                class="block text-sm font-medium text-gray-700 mb-1"
+                >Descrição da Solução (mín. 10 caracteres)</label
+              >
+              <textarea
+                id="resolve-problem-notes"
+                rows="4"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                placeholder="Descreva o que foi feito para solucionar este problema..."
+                required
+                minlength="10"
+              ></textarea>
+              <p
+                id="resolve-problem-error"
+                class="text-red-500 text-sm mt-2 hidden"
+              ></p>
+            </div>
+          </div>
+          <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
+            <button
+              type="button"
+              id="cancel-resolve-problem-btn"
+              class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+            >
+              Marcar como Resolvido
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <div
+      id="checklist-pdv-modal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden p-4"
+    >
+      <div
+        class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[95vh] flex flex-col"
+      >
+        <div class="p-4 border-b flex justify-between items-center">
+          <h3 class="text-lg font-semibold" id="checklist-pdv-modal-title"></h3>
+          <button
+            id="checklist-help-btn"
+            class="text-gray-400 hover:text-blue-500"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.79 4 4s-1.79 4-4 4-4-1.79-4-4c0-1.165.451-2.228 1.228-3zM12 18h.01"
+              />
+            </svg>
+          </button>
+        </div>
+        <div class="p-4 space-y-4 overflow-y-auto">
+          <div
+            id="checklist-current-status-info"
+            class="p-3 bg-gray-50 rounded-md text-sm"
+          ></div>
+          <div id="checklist-problem-section" class="space-y-3">
+            <label
+              for="checklist-new-status"
+              class="block text-sm font-medium text-gray-700"
+              >Status do PDV</label
+            >
+            <select
+              id="checklist-new-status"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md"
+            ></select>
+          </div>
+          <div id="checklist-pdv-items" class="space-y-2 pt-3 border-t">
+            <label class="block text-sm font-medium text-gray-700"
+              >Itens com problema</label
+            >
+          </div>
+          <div>
+            <label
+              for="checklist-observation"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >Observações</label
+            >
+            <textarea
+              id="checklist-observation"
+              rows="3"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md"
+            ></textarea>
+          </div>
+        </div>
+        <div class="p-4 bg-gray-50 border-t space-y-2">
+          <div class="flex justify-center gap-2">
+            <button
+              id="checklist-prev-pdv-btn"
+              class="bg-gray-300 text-gray-800 p-2 rounded-md hover:bg-gray-400"
+            >
+              Anterior
+            </button>
+            <button
+              id="checklist-ok-btn"
+              class="flex-grow bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 font-semibold"
+            >
+              Incluir
+            </button>
+            <button
+              id="checklist-next-pdv-btn"
+              class="bg-gray-300 text-gray-800 p-2 rounded-md hover:bg-gray-400"
+            >
+              Próximo
+            </button>
+          </div>
+          <div class="flex justify-between gap-2">
+            <button
+              id="checklist-busy-btn"
+              class="flex-grow bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600"
+            >
+              Caixa Ocupado
+            </button>
+            <button
+              id="checklist-save-and-close-btn"
+              class="flex-grow bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+            >
+              Salvar e Voltar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="checklist-help-modal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden p-4"
+    >
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
+        <div class="p-4 border-b">
+          <h3 class="text-lg font-semibold">Itens a Verificar</h3>
+        </div>
+        <div id="checklist-help-list" class="p-4 space-y-2 text-sm"></div>
+        <div class="p-4 bg-gray-50 border-t flex justify-end">
+          <button
+            id="close-checklist-help-btn"
+            class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="checklist-config-modal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden p-4"
+    >
+      <div
+        class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col"
+      >
+        <div class="p-4 border-b">
+          <h3 class="text-lg font-semibold" id="checklist-config-title"></h3>
+        </div>
+        <div class="p-4 space-y-4 overflow-y-auto">
+          <div>
+            <label
+              for="checklist-days-limit"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >Nº de dias para alerta sem checklist</label
+            >
+            <input
+              type="number"
+              id="checklist-days-limit"
+              min="1"
+              class="w-full px-3 py-2 border rounded-md"
+            />
+          </div>
+          <div class="pt-3 border-t">
+            <h4 class="font-semibold mb-2">
+              Itens de Checklist (Específicos da Loja)
+            </h4>
+            <div id="checklist-config-items-list" class="space-y-2 mb-3"></div>
+            <form id="add-checklist-item-form" class="flex gap-2">
+              <input
+                type="text"
+                id="new-checklist-item-text"
+                placeholder="Novo item específico"
+                class="flex-grow px-3 py-2 border rounded-md"
+                required
+              />
+              <button
+                type="submit"
+                class="bg-[#0c0d3d] text-white px-4 rounded-md hover:bg-[#1f2166]"
+              >
+                +
+              </button>
             </form>
+          </div>
         </div>
-    </div>
-    
-    <div id="select-store-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-30 hidden p-4">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-sm">
-            <div class="p-4 border-b"><h3 class="text-lg font-semibold">Selecionar Loja</h3></div>
-            <div id="store-selection-list" class="p-4 max-h-64 overflow-y-auto"></div>
-            <div class="p-4 bg-gray-50 border-t flex justify-end">
-                <button id="cancel-store-selection-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
-            </div>
+        <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
+          <button
+            type="button"
+            id="cancel-checklist-config-btn"
+            class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            id="save-checklist-config-btn"
+            class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+          >
+            Salvar Configurações
+          </button>
         </div>
-    </div>
-
-    <div id="manage-store-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-40 hidden p-4">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
-            <div class="p-4 border-b flex justify-between items-center">
-                <h3 class="text-lg font-semibold" id="manage-store-modal-title"></h3>
-                <button id="goto-checklist-config-btn" class="text-sm bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700">Config. Checklist</button>
-            </div>
-            <div class="p-4 flex-grow overflow-y-auto">
-                <h4 class="font-semibold mb-3">PDVs na Loja</h4>
-                <div id="manage-store-pdv-list" class="space-y-2 mb-4"></div>
-                <form id="add-pdv-to-store-form" class="p-3 border rounded-md bg-gray-50 space-y-3">
-                    <h4 class="font-medium">Criação Rápida de PDVs</h4>
-                    <div class="flex gap-2">
-                         <input type="text" id="new-pdv-start-number" placeholder="Nome/Nº (ex: 116)" class="w-2/3 px-3 py-2 border rounded-md" required>
-                         <input type="number" id="new-pdv-quantity" value="3" min="1" max="50" class="w-1/3 px-3 py-2 border rounded-md" required>
-                    </div>
-                     <button type="submit" class="w-full bg-[#0c0d3d] text-white px-4 py-2 rounded-md hover:bg-[#1f2166]">Criar PDV(s)</button>
-                </form>
-            </div>
-            <div class="p-4 bg-gray-50 border-t flex justify-end">
-                <button id="close-manage-store-modal-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Fechar</button>
-            </div>
-        </div>
+      </div>
     </div>
 
-    <div id="edit-user-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-40 hidden p-4">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
-            <form id="edit-user-form">
-                <input type="hidden" id="edit-user-id">
-                <div class="p-4 border-b"><h3 class="text-lg font-semibold">Editar Usuário</h3></div>
-                <div class="p-4 space-y-4">
-                    <div>
-                        <label for="edit-user-name" class="block text-sm font-medium text-gray-700 mb-1">Nome Completo</label>
-                        <input type="text" id="edit-user-name" class="w-full px-3 py-2 border rounded-md" required>
-                    </div>
-                     <div>
-                        <label for="edit-user-username" class="block text-sm font-medium text-gray-700 mb-1">Usuário (login)</label>
-                        <input type="text" id="edit-user-username" class="w-full px-3 py-2 border rounded-md" required>
-                    </div>
-                     <div>
-                        <label for="edit-user-role" class="block text-sm font-medium text-gray-700 mb-1">Cargo</label>
-                        <select id="edit-user-role" class="w-full px-3 py-2 border rounded-md" required></select>
-                    </div>
-                     <div>
-                        <label for="edit-user-store" class="block text-sm font-medium text-gray-700 mb-1">Loja Padrão</label>
-                        <select id="edit-user-store" class="w-full px-3 py-2 border rounded-md"></select>
-                    </div>
-                </div>
-                <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
-                    <button type="button" id="cancel-edit-user-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
-                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Salvar Alterações</button>
-                </div>
-            </form>
+    <div
+      id="apply-checklist-item-modal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[60] hidden p-4"
+    >
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
+        <div class="p-4 border-b">
+          <h3 class="text-lg font-semibold">Aplicar Item de Checklist</h3>
         </div>
+        <div class="p-4">
+          <p class="mb-4">
+            Selecione as lojas para adicionar o item: "<span
+              id="apply-item-text"
+              class="font-semibold"
+            ></span
+            >"
+          </p>
+          <div
+            class="space-y-2 max-h-60 overflow-y-auto"
+            id="apply-item-stores-list"
+          ></div>
+          <div class="flex items-center mt-4">
+            <input
+              id="apply-item-all-stores"
+              type="checkbox"
+              class="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+            />
+            <label
+              for="apply-item-all-stores"
+              class="ml-2 block text-sm text-gray-900"
+              >Marcar Todas</label
+            >
+          </div>
+        </div>
+        <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
+          <button
+            type="button"
+            id="cancel-apply-item-btn"
+            class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            id="confirm-apply-item-btn"
+            class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+          >
+            Confirmar
+          </button>
+        </div>
+      </div>
     </div>
 
-     <div id="edit-store-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-40 hidden p-4">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
-            <form id="edit-store-form">
-                <input type="hidden" id="edit-store-id">
-                <div class="p-4 border-b"><h3 class="text-lg font-semibold">Editar Loja</h3></div>
-                <div class="p-4 space-y-4">
-                    <div>
-                        <label for="edit-store-name" class="block text-sm font-medium text-gray-700 mb-1">Nome da Loja</label>
-                        <input type="text" id="edit-store-name" class="w-full px-3 py-2 border rounded-md" required>
-                    </div>
-                    <div>
-                        <label for="edit-store-pdv-start" class="block text-sm font-medium text-gray-700 mb-1">Nº do 1º PDV</label>
-                        <input type="number" id="edit-store-pdv-start" class="w-full px-3 py-2 border rounded-md" required>
-                    </div>
-                </div>
-                <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
-                    <button type="button" id="cancel-edit-store-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
-                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Salvar</button>
-                </div>
-            </form>
+    <div
+      id="view-checklist-modal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden p-4"
+    >
+      <div
+        class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col"
+      >
+        <div class="p-4 border-b">
+          <h3 class="text-lg font-semibold" id="view-checklist-modal-title">
+            Detalhes do Checklist
+          </h3>
         </div>
-    </div>
-    
-    <div id="password-change-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-40 hidden p-4">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
-            <form id="password-change-form">
-                <div class="p-4 border-b"><h3 class="text-lg font-semibold" id="password-modal-title"></h3></div>
-                <div class="p-4 space-y-4">
-                     <div>
-                        <label for="password-change-username" class="block text-sm font-medium text-gray-700 mb-1">Usuário (login)</label>
-                        <input type="text" id="password-change-username" class="w-full px-3 py-2 border rounded-md bg-gray-100" readonly>
-                    </div>
-                     <div id="current-password-wrapper">
-                        <label for="current-password" class="block text-sm font-medium text-gray-700 mb-1">Senha Atual</label>
-                        <input type="password" id="current-password" class="w-full px-3 py-2 border rounded-md">
-                    </div>
-                     <div>
-                        <label for="new-password" class="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
-                        <input type="password" id="new-password" class="w-full px-3 py-2 border rounded-md" required>
-                    </div>
-                     <div>
-                        <label for="confirm-new-password" class="block text-sm font-medium text-gray-700 mb-1">Confirme a Nova Senha</label>
-                        <input type="password" id="confirm-new-password" class="w-full px-3 py-2 border rounded-md" required>
-                    </div>
-                    <p id="password-change-error" class="text-red-500 text-sm text-center hidden"></p>
-                </div>
-                <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
-                    <button type="button" id="cancel-password-change-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
-                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Definir Senha</button>
-                </div>
-            </form>
+        <div
+          id="view-checklist-modal-content"
+          class="p-4 space-y-3 overflow-y-auto"
+        ></div>
+        <div
+          class="p-4 bg-gray-50 border-t flex flex-wrap justify-between items-center gap-2"
+        >
+          <div class="flex gap-2">
+            <button
+              id="copy-checklist-text-btn"
+              class="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 text-sm flex items-center gap-2"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                <path
+                  d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"
+                />
+              </svg>
+              Copiar Texto
+            </button>
+            <button
+              id="download-checklist-png-btn"
+              class="bg-gray-600 text-white px-3 py-2 rounded-md hover:bg-gray-700 text-sm flex items-center gap-2"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+              Baixar PNG
+            </button>
+          </div>
+          <button
+            id="close-view-checklist-modal-btn"
+            class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"
+          >
+            Fechar
+          </button>
         </div>
-    </div>
-
-    <div id="edit-role-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-40 hidden p-4">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
-            <form id="edit-role-form">
-                <input type="hidden" id="edit-role-id">
-                <div class="p-4 border-b"><h3 class="text-lg font-semibold" id="edit-role-modal-title"></h3></div>
-                <div id="edit-role-permissions" class="p-4 space-y-3 overflow-y-auto">
-                </div>
-                <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
-                    <button type="button" id="cancel-edit-role-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
-                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Salvar Permissões</button>
-                </div>
-            </form>
-        </div>
-    </div>
-    
-    <div id="confirmation-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden p-4">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
-            <form id="confirmation-form">
-                <div class="p-4 border-b">
-                    <h3 class="text-lg font-semibold" id="confirmation-modal-title">Confirmar Ação</h3>
-                </div>
-                <div class="p-4 space-y-4">
-                    <p id="confirmation-modal-message"></p>
-                    <div>
-                        <label for="confirmation-password" class="block text-sm font-medium text-gray-700 mb-1">Sua Senha</label>
-                        <input type="password" id="confirmation-password" class="w-full px-3 py-2 border rounded-md" required>
-                        <p id="confirmation-error" class="text-red-500 text-sm mt-2 hidden">Senha incorreta.</p>
-                    </div>
-                </div>
-                <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
-                    <button type="button" id="cancel-confirmation-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
-                    <button type="submit" id="confirm-action-btn" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700">Confirmar</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div id="resolve-problem-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden p-4">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
-            <form id="resolve-problem-form">
-                <input type="hidden" id="resolve-problem-id">
-                <div class="p-4 border-b">
-                    <h3 class="text-lg font-semibold" id="resolve-problem-modal-title">Solucionar Pendência</h3>
-                </div>
-                <div class="p-4 space-y-4">
-                    <div class="p-3 bg-gray-50 rounded-md text-sm space-y-1">
-                        <p><strong>Problema:</strong> <span id="resolve-problem-title" class="text-gray-800"></span></p>
-                        <p class="text-xs text-gray-600"><strong>Reportado por:</strong> <span id="resolve-problem-reporter"></span> em <span id="resolve-problem-date"></span></p>
-                        <p class="text-xs text-gray-600"><strong>Componente:</strong> <span id="resolve-problem-item"></span></p>
-                    </div>
-                     <div>
-                        <label for="resolve-problem-notes" class="block text-sm font-medium text-gray-700 mb-1">Descrição da Solução (mín. 10 caracteres)</label>
-                        <textarea id="resolve-problem-notes" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Descreva o que foi feito para solucionar este problema..." required minlength="10"></textarea>
-                        <p id="resolve-problem-error" class="text-red-500 text-sm mt-2 hidden"></p>
-                    </div>
-                </div>
-                <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
-                    <button type="button" id="cancel-resolve-problem-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
-                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Marcar como Resolvido</button>
-                </div>
-            </form>
-        </div>
-    </div>
-    <div id="checklist-pdv-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden p-4">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[95vh] flex flex-col">
-            <div class="p-4 border-b flex justify-between items-center">
-                 <h3 class="text-lg font-semibold" id="checklist-pdv-modal-title"></h3>
-                 <button id="checklist-help-btn" class="text-gray-400 hover:text-blue-500">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.79 4 4s-1.79 4-4 4-4-1.79-4-4c0-1.165.451-2.228 1.228-3zM12 18h.01" />
-                    </svg>
-                </button>
-            </div>
-            <div class="p-4 space-y-4 overflow-y-auto">
-                <div id="checklist-current-status-info" class="p-3 bg-gray-50 rounded-md text-sm"></div>
-                <div id="checklist-problem-section" class="space-y-3">
-                     <label for="checklist-new-status" class="block text-sm font-medium text-gray-700">Status do PDV</label>
-                     <select id="checklist-new-status" class="w-full px-3 py-2 border border-gray-300 rounded-md"></select>
-                </div>
-                <div id="checklist-pdv-items" class="space-y-2 pt-3 border-t">
-                     <label class="block text-sm font-medium text-gray-700">Itens com problema</label>
-                </div>
-                <div>
-                    <label for="checklist-observation" class="block text-sm font-medium text-gray-700 mb-1">Observações</label>
-                    <textarea id="checklist-observation" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md"></textarea>
-                </div>
-            </div>
-            <div class="p-4 bg-gray-50 border-t space-y-2">
-                <div class="flex justify-center gap-2">
-                    <button id="checklist-prev-pdv-btn" class="bg-gray-300 text-gray-800 p-2 rounded-md hover:bg-gray-400">Anterior</button>
-                    <button id="checklist-ok-btn" class="flex-grow bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 font-semibold">Incluir</button>
-                    <button id="checklist-next-pdv-btn" class="bg-gray-300 text-gray-800 p-2 rounded-md hover:bg-gray-400">Próximo</button>
-                </div>
-                <div class="flex justify-between gap-2">
-                    <button id="checklist-busy-btn" class="flex-grow bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600">Caixa Ocupado</button>
-                    <button id="checklist-save-and-close-btn" class="flex-grow bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Salvar e Voltar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="checklist-help-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden p-4">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
-            <div class="p-4 border-b">
-                <h3 class="text-lg font-semibold">Itens a Verificar</h3>
-            </div>
-            <div id="checklist-help-list" class="p-4 space-y-2 text-sm">
-                </div>
-            <div class="p-4 bg-gray-50 border-t flex justify-end">
-                <button id="close-checklist-help-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Fechar</button>
-            </div>
-        </div>
-    </div>
-
-
-    <div id="checklist-config-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden p-4">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
-            <div class="p-4 border-b"><h3 class="text-lg font-semibold" id="checklist-config-title"></h3></div>
-            <div class="p-4 space-y-4 overflow-y-auto">
-                <div>
-                    <label for="checklist-days-limit" class="block text-sm font-medium text-gray-700 mb-1">Nº de dias para alerta sem checklist</label>
-                    <input type="number" id="checklist-days-limit" min="1" class="w-full px-3 py-2 border rounded-md">
-                </div>
-                <div class="pt-3 border-t">
-                     <h4 class="font-semibold mb-2">Itens de Checklist (Específicos da Loja)</h4>
-                     <div id="checklist-config-items-list" class="space-y-2 mb-3"></div>
-                     <form id="add-checklist-item-form" class="flex gap-2">
-                         <input type="text" id="new-checklist-item-text" placeholder="Novo item específico" class="flex-grow px-3 py-2 border rounded-md" required>
-                         <button type="submit" class="bg-[#0c0d3d] text-white px-4 rounded-md hover:bg-[#1f2166]">+</button>
-                     </form>
-                </div>
-            </div>
-            <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
-                <button type="button" id="cancel-checklist-config-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
-                <button type="button" id="save-checklist-config-btn" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Salvar Configurações</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="apply-checklist-item-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[60] hidden p-4">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
-            <div class="p-4 border-b"><h3 class="text-lg font-semibold">Aplicar Item de Checklist</h3></div>
-            <div class="p-4">
-                <p class="mb-4">Selecione as lojas para adicionar o item: "<span id="apply-item-text" class="font-semibold"></span>"</p>
-                <div class="space-y-2 max-h-60 overflow-y-auto" id="apply-item-stores-list">
-                    </div>
-                 <div class="flex items-center mt-4">
-                    <input id="apply-item-all-stores" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
-                    <label for="apply-item-all-stores" class="ml-2 block text-sm text-gray-900">Marcar Todas</label>
-                </div>
-            </div>
-            <div class="p-4 bg-gray-50 border-t flex justify-end gap-2">
-                <button type="button" id="cancel-apply-item-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
-                <button type="button" id="confirm-apply-item-btn" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Confirmar</button>
-            </div>
-        </div>
-    </div>
-    
-    <div id="view-checklist-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden p-4">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
-            <div class="p-4 border-b">
-                <h3 class="text-lg font-semibold" id="view-checklist-modal-title">Detalhes do Checklist</h3>
-            </div>
-            <div id="view-checklist-modal-content" class="p-4 space-y-3 overflow-y-auto">
-                </div>
-            <div class="p-4 bg-gray-50 border-t flex justify-end">
-                <button id="close-view-checklist-modal-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Fechar</button>
-            </div>
-        </div>
+      </div>
     </div>
 
     <script src="app.js"></script>
-
-</body>
+    <script src="service-worker.js"></script>
+  </body>
 </html>
-   
-
