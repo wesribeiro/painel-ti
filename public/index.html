@@ -5,12 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Painel TI - Rede Nilo</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script
-      src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
-      integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tYHuRgEXEBOEJIOctUjspyqrjL2+VMFGkaK9OkA=="
-      crossorigin="anonymous"
-      referrerpolicy="no-referrer"
-    ></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <link rel="manifest" href="manifest.json" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -946,7 +941,7 @@
                 required
               ></select>
             </div>
-            <div id="status-item-selection-container">
+            <div id="status-item-selection-container" style="display: none">
               <label
                 for="status-item-select"
                 class="block text-sm font-medium text-gray-700 mb-1"
@@ -1496,7 +1491,11 @@
               class="w-full px-3 py-2 border border-gray-300 rounded-md"
             ></select>
           </div>
-          <div id="checklist-pdv-items" class="space-y-2 pt-3 border-t">
+          <div
+            id="checklist-pdv-items"
+            class="space-y-2 pt-3 border-t"
+            style="display: none"
+          >
             <label class="block text-sm font-medium text-gray-700"
               >Itens com problema</label
             >

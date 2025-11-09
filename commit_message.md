@@ -1,27 +1,16 @@
-feat(checklist): Adiciona exportação de checklist para PNG e Texto (GLPI)
+fix(checklist): Corrige bugs na exportação e validação do checklist
 
-Implementa a funcionalidade de exportação de relatórios de checklist no modal de visualização (histórico de checklist).
+Este commit corrige dois bugs identificados na V2.4:
 
-Esta funcionalidade visa otimizar o fluxo de trabalho dos técnicos, permitindo que o resultado do checklist diário seja facilmente copiado ou anexado aos chamados no GLPI.
+1.  **Correção da Validação do Checklist:**
 
-Modificações:
+    - A lógica em `saveAndValidateCurrentChecklistPdv` foi ajustada.
+    - Anteriormente, ela exigia uma observação se o status _mudasse_ (ex: de "Atenção" para "Ok"), o que era incorreto.
+    - Agora, a observação só é obrigatória se o _novo status selecionado_ **não** for "Ok" (ou seja, "Atenção" ou "Manutenção"), corrigindo o fluxo de trabalho do usuário.
 
-- **Frontend (index.html):**
+2.  **Correção do "Copiar Texto" em HTTP:**
+    - A API `navigator.clipboard.writeText` falha em conexões não seguras (HTTP), o que gerava um erro e exibia o toast "Falha ao copiar".
+    - A função `handleCopyChecklistText` foi reescrita para incluir um _fallback_.
+    - Ela agora tenta a API moderna primeiro e, se falhar, usa o método legado (`document.execCommand('copy')`), que funciona em HTTP, garantindo que a funcionalidade opere em ambientes de teste.
 
-  - Adiciona a biblioteca `html2canvas` via CDN para a geração de imagens a partir do DOM.
-  - Inclui os botões "Copiar Texto" e "Baixar PNG" no rodapé do modal `view-checklist-modal`.
-  - Adiciona um container `div#export-container` (oculto) para ser usado como palco de renderização para o `html2canvas`.
-
-- **Frontend (app.js):**
-
-  - Atualiza `renderViewChecklistModal` para chamar o novo endpoint de detalhes.
-  - Armazena os dados do checklist e das pendências no estado (`state.detailedChecklistData`).
-  - Renderiza a lista de "Pendências Atuais da Loja" abaixo dos resultados do checklist no modal.
-  - Implementa as funções `generateChecklistReportHTML` e `generateChecklistReportText` para formatar os dados.
-  - Implementa os handlers `handleCopyChecklistText` (usando `navigator.clipboard`) e `handleDownloadChecklistPNG` (usando `html2canvas`).
-
-- **Backend (server.js):**
-  - Cria o novo endpoint autenticado `GET /api/checklists/:id/details-with-problems`.
-  - O endpoint busca os dados do checklist solicitado e, adicionalmente, consulta o banco de dados para encontrar todas as pendências (status != 'Resolvido') associadas aos PDVs daquele checklist, retornando ambos os conjuntos de dados.
-
-Refs: V2.3
+Refs: V2.5
